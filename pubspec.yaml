@@ -1,0 +1,22 @@
+name: close_pilot
+description: Smart Windows background process manager. Entirely local and privacy-first.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/ClosePilot-Agent.ps1
+    - assets/ClosePilot-Setup.ps1
