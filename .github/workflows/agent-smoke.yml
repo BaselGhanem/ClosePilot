@@ -30,10 +30,13 @@ jobs:
             apps = @(@{id='chrome';label='Chrome';names=@('chrome');enabled=$true})
           } | ConvertTo-Json -Depth 5
           Set-Content -LiteralPath (Join-Path $root 'config.json') -Value $config -Encoding utf8
-          $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $agent + '"')) -WindowStyle Hidden -PassThru
+          Copy-Item -LiteralPath 'assets/ClosePilot-Setup.ps1' -Destination (Join-Path $root 'ClosePilot-Setup.ps1') -Force
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'ClosePilot-Setup.ps1') -Action start-agent
+          $p = Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" | Where-Object { $_.CommandLine -like '*ClosePilot-Agent.ps1*' } | Select-Object -First 1
+          if (-not $p) { throw "PowerShell bootstrap did not start agent" }
           try {
             Start-Sleep -Seconds 9
-            Write-Output "Agent launcher PID: $($p.Id)"
+            Write-Output "Agent launcher PID: $($p.ProcessId)"
             $status = Join-Path $root 'status.json'
             $fatal = Join-Path $root 'agent-fatal.log'
             if (Test-Path $fatal) { Get-Content $fatal }
@@ -49,5 +52,5 @@ jobs:
           } finally {
             Set-Content (Join-Path $root 'stop.request') 'stop'
             Start-Sleep -Seconds 3
-            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
           }
