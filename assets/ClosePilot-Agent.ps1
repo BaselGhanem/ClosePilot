@@ -71,7 +71,10 @@ public static class ClosePilotWindows {
             [System.IO.File]::WriteAllText($temporary, $json, $utf8)
             if (Test-Path -LiteralPath $statusFile) {
                 try {
-                    [System.IO.File]::Replace($temporary, $statusFile, $null)
+                    # PowerShell may coerce a null backup argument into an invalid path.
+                    # Use an explicit same-volume backup to preserve atomic replacement.
+                    $backup = Join-Path $root 'status.backup'
+                    [System.IO.File]::Replace($temporary, $statusFile, $backup)
                 } catch {
                     $replaceError = $_.Exception.Message
                     # Avoid leaving status.json stale if atomic replacement is unsupported.
