@@ -1,4 +1,11 @@
 # ClosePilot agent v1.0.0 | Windows PowerShell 5.1+ | Runs in the current user session.
+# Early boot trace: retained even if initialization exits before the main event log.
+try {
+  $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
+  New-Item -ItemType Directory -Path $entryRoot -Force | Out-Null
+  Add-Content -LiteralPath (Join-Path $entryRoot 'agent-entry.log') -Value ('{0} | Entrypoint reached | PID {1}' -f (Get-Date).ToString('o'), $PID) -Encoding UTF8
+} catch { }
+
 # Intentionally observes actual top-level visible windows and only arms an app AFTER
 # its visible window has been observed. Does not kill unspecified/background-only apps.
 $ErrorActionPreference = 'Stop'
