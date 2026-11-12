@@ -328,8 +328,17 @@ class ClosePilotController extends ChangeNotifier {
         'powershell.exe',
         ['-NoLogo','-NoProfile','-NonInteractive','-WindowStyle','Hidden',
          '-ExecutionPolicy','Bypass','-File',script.path],
-        mode: ProcessStartMode.detached, workingDirectory: home.path);
-      await _trace('PowerShell launched, PID ${child.pid}');
+        mode: ProcessStartMode.detachedWithStdio,
+        workingDirectory: home.path);
+      child.stdout.transform(utf8.decoder).listen(
+        (chunk) { unawaited(_trace('AGENT STDOUT: $chunk')); },
+        onError: (Object e) { unawaited(_trace('AGENT STDOUT stream error: $e')); },
+      );
+      child.stderr.transform(utf8.decoder).listen(
+        (chunk) { unawaited(_trace('AGENT STDERR: $chunk')); },
+        onError: (Object e) { unawaited(_trace('AGENT STDERR stream error: $e')); },
+      );
+      await _trace('PowerShell launched with stderr capture, PID ${child.pid}');
       for (var attempt = 0; attempt < 5; attempt++) {
         await Future<void>.delayed(const Duration(seconds: 2));
         await refresh();
@@ -341,6 +350,16 @@ class ClosePilotController extends ChangeNotifier {
         }
       }
       String detail = 'No agent heartbeat within 10 seconds';
+      final entry = File('${home.path}\\agent-entry.log');
+      if (!await entry.exists()) {
+        detail = 'PowerShell did not enter the agent script. See ui-diagnostics.log';
+      }
+      final uiDiagnostic = File('${home.path}\\ui-diagnostics.log');
+      if (await uiDiagnostic.exists()) {
+        final lines = await uiDiagnostic.readAsLines();
+        final stderr = lines.where((line) => line.contains('AGENT STDERR:')).toList();
+        if (stderr.isNotEmpty) detail = stderr.last;
+      }
       final fatal = File('${home.path}\\agent-fatal.log');
       if (await fatal.exists()) {
         final lines = await fatal.readAsLines();
