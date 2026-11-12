@@ -323,22 +323,9 @@ class ClosePilotController extends ChangeNotifier {
       if (!await conf.exists()) await _saveConfig();
       final stopFlag = File('${home.path}\\stop.request');
       if (await stopFlag.exists()) await stopFlag.delete();
-      await _trace('Launching background monitor');
-      final child = await Process.start(
-        'powershell.exe',
-        ['-NoLogo','-NoProfile','-NonInteractive','-WindowStyle','Hidden',
-         '-ExecutionPolicy','Bypass','-File',script.path],
-        mode: ProcessStartMode.detachedWithStdio,
-        workingDirectory: home.path);
-      child.stdout.transform(utf8.decoder).listen(
-        (chunk) { unawaited(_trace('AGENT STDOUT: $chunk')); },
-        onError: (Object e) { unawaited(_trace('AGENT STDOUT stream error: $e')); },
-      );
-      child.stderr.transform(utf8.decoder).listen(
-        (chunk) { unawaited(_trace('AGENT STDERR: $chunk')); },
-        onError: (Object e) { unawaited(_trace('AGENT STDERR stream error: $e')); },
-      );
-      await _trace('PowerShell launched with stderr capture, PID ${child.pid}');
+      await _trace('Launching background monitor through PowerShell bootstrap');
+      await _setup('start-agent');
+      await _trace('PowerShell bootstrap completed');
       for (var attempt = 0; attempt < 5; attempt++) {
         await Future<void>.delayed(const Duration(seconds: 2));
         await refresh();
