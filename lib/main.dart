@@ -215,6 +215,13 @@ class ClosePilotController extends ChangeNotifier {
   bool _refreshing = false;
   late final Directory home;
 
+  Future<void> _trace(String message) async {
+    try {
+      await File('${home.path}\\ui-diagnostics.log').writeAsString(
+        '${DateTime.now().toIso8601String()} | $message\n', mode: FileMode.append, flush: true);
+    } catch (_) {}
+  }
+
   Future<void> initialize() async {
     if (!Platform.isWindows) {
       error = 'ClosePilot runs on Windows 10/11 only.';
@@ -223,30 +230,52 @@ class ClosePilotController extends ChangeNotifier {
       return;
     }
     try {
-      home = Directory(
-          '${Platform.environment['LOCALAPPDATA']}\\ClosePilot');
+      final base = Platform.environment['LOCALAPPDATA'];
+      if (base == null || base.isEmpty) {
+        throw StateError('LOCALAPPDATA is missing.');
+      }
+      home = Directory('$base\\ClosePilot');
       await home.create(recursive: true);
+      await _trace('Initialization started');
       await _installAssets();
+      await _trace('Embedded PowerShell assets installed');
       final file = File('${home.path}\\config.json');
       if (await file.exists()) {
-        final data = jsonDecode(_stripBom(await file.readAsString()));
-        config = MonitorConfig.fromJson(data as Map<String, dynamic>);
+        try {
+          final data = jsonDecode(_stripBom(await file.readAsString()));
+          config = MonitorConfig.fromJson(data as Map<String, dynamic>);
+        } catch (e) {
+          await file.copy('${file.path}.invalid.${DateTime.now().millisecondsSinceEpoch}');
+          config = MonitorConfig.initial();
+          await _saveConfig();
+          await _trace('Invalid configuration reset: $e');
+        }
       } else {
         await _saveConfig();
       }
+      await _trace('Configuration ready');
       final migrationFlag = File('${home.path}\\migrated-v1.flag');
       if (!await migrationFlag.exists()) {
-        await _setup('migrate-legacy');
-        await migrationFlag.writeAsString(DateTime.now().toIso8601String());
+        try {
+          await _setup('migrate-legacy');
+          await migrationFlag.writeAsString(DateTime.now().toIso8601String());
+          await _trace('Legacy cleanup migrated');
+        } catch (e) {
+          await _trace('Legacy migration warning (non-fatal): $e');
+        }
       }
       if (config.autoStart) {
-        await _setup('enable-startup');
+        try {
+          await _setup('enable-startup');
+        } catch (e) {
+          await _trace('Startup shortcut warning (non-fatal): $e');
+        }
       }
       await startAgent();
-      await refresh();
       _timer = Timer.periodic(const Duration(seconds: 3), (_) => refresh());
-    } catch (e) {
-      error = '$e';
+    } catch (e, stack) {
+      error = 'Initialization failed: $e';
+      try { await _trace('$error\n$stack'); } catch (_) {}
     } finally {
       loading = false;
       notifyListeners();
@@ -286,24 +315,43 @@ class ClosePilotController extends ChangeNotifier {
 
   Future<void> startAgent() async {
     try {
+      final script = File('${home.path}\\ClosePilot-Agent.ps1');
+      if (!await script.exists()) {
+        throw StateError('Agent script is missing. Try reopening ClosePilot.');
+      }
+      final conf = File('${home.path}\\config.json');
+      if (!await conf.exists()) await _saveConfig();
       final stopFlag = File('${home.path}\\stop.request');
       if (await stopFlag.exists()) await stopFlag.delete();
-      await Process.start(
-          'powershell.exe',
-          [
-            '-NoProfile',
-            '-WindowStyle',
-            'Hidden',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-File',
-            '${home.path}\\ClosePilot-Agent.ps1',
-          ],
-          mode: ProcessStartMode.detached,
-          workingDirectory: home.path);
-      error = null;
+      await _trace('Launching background monitor');
+      final child = await Process.start(
+        'powershell.exe',
+        ['-NoLogo','-NoProfile','-NonInteractive','-WindowStyle','Hidden',
+         '-ExecutionPolicy','Bypass','-File',script.path],
+        mode: ProcessStartMode.detached, workingDirectory: home.path);
+      await _trace('PowerShell launched, PID ${child.pid}');
+      for (var attempt = 0; attempt < 5; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        await refresh();
+        if (online) {
+          error = null;
+          await _trace('Heartbeat confirmed: monitoring is online');
+          notifyListeners();
+          return;
+        }
+      }
+      String detail = 'No agent heartbeat within 10 seconds';
+      final fatal = File('${home.path}\\agent-fatal.log');
+      if (await fatal.exists()) {
+        final lines = await fatal.readAsLines();
+        if (lines.isNotEmpty) detail = lines.last;
+      }
+      error = 'Agent offline: $detail';
+      await _trace(error!);
+      notifyListeners();
     } catch (e) {
-      error = 'Unable to start monitoring: $e';
+      error = 'Unable to launch monitor: $e';
+      await _trace(error!);
       notifyListeners();
     }
   }
@@ -749,8 +797,10 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 8),
-          const Text('Monitoring runs independently of this window.',
-              style: TextStyle(fontSize: 11, color: kMuted, height: 1.5)),
+          Text(controller.online
+              ? 'Monitoring runs independently of this window.'
+              : 'Cleanup is NOT running. Open Settings to view diagnostics.',
+              style: const TextStyle(fontSize: 11, color: kMuted, height: 1.5)),
         ]),
       );
 
@@ -764,6 +814,29 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
                   label: const Text('Refresh'))),
           const SizedBox(height: 27),
           _hero(),
+          if (!controller.online) ...[
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF34231C),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: kWarn.withValues(alpha: .55)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.warning_amber_rounded, color: kWarn),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  controller.error ?? 'Background monitor is offline. Cleanup cannot run.',
+                  style: const TextStyle(fontSize: 12, color: kInk),
+                )),
+                TextButton(
+                  onPressed: () => controller.openDataDirectory(),
+                  child: const Text('Diagnostics folder'),
+                ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 24),
           LayoutBuilder(builder: (ctx, box) {
             final columns = box.maxWidth > 720 ? 3 : (box.maxWidth > 460 ? 2 : 1);
@@ -814,7 +887,8 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
       ]);
 
   Widget _hero() {
-    final active = controller.config.monitorEnabled;
+    final configured = controller.config.monitorEnabled;
+    final active = configured && controller.online;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
@@ -833,24 +907,33 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
             Icon(active ? Icons.verified_user_outlined : Icons.pause_circle_outline,
                 size: 19, color: kAccentBright),
             const SizedBox(width: 9),
-            Text(active ? 'AUTOMATIC CLEANUP ACTIVE' : 'AUTOMATIC CLEANUP PAUSED',
+            Text(!controller.online ? 'MONITOR OFFLINE' :
+                active ? 'AUTOMATIC CLEANUP ACTIVE' : 'AUTOMATIC CLEANUP PAUSED',
                 style: const TextStyle(color: kAccentBright, letterSpacing: 1.1,
                     fontSize: 11, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 13),
-          Text(active ? 'Your apps. Your rules.' : 'Everything is on hold.',
+          Text(!controller.online ? 'Monitoring is not running.' :
+              active ? 'Your apps. Your rules.' : 'Everything is on hold.',
               style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800, letterSpacing: -.7)),
           const SizedBox(height: 7),
           const Text('Close a window. ClosePilot handles leftover background processes.',
               style: TextStyle(color: Color(0xFFC0D4D9), fontSize: 13, height: 1.5)),
         ]);
         final control = FilledButton.icon(
-          onPressed: () => controller.setMonitorEnabled(!active),
+          onPressed: () async {
+            if (!controller.online) {
+              await controller.startAgent();
+            } else {
+              await controller.setMonitorEnabled(!configured);
+            }
+          },
           style: FilledButton.styleFrom(
             backgroundColor: active ? const Color(0xFF25434A) : kAccent,
           ),
           icon: Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded),
-          label: Text(active ? 'Pause cleanup' : 'Resume cleanup'),
+          label: Text(!controller.online ? 'Start monitor' :
+              active ? 'Pause cleanup' : 'Resume cleanup'),
         );
         if (narrow) return Column(crossAxisAlignment: CrossAxisAlignment.start,
             children: [text, const SizedBox(height: 20), control]);
