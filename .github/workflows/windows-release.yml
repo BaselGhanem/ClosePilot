@@ -1,0 +1,22 @@
+name: Build ClosePilot Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Windows build, tests, distributable zip
+        shell: pwsh
+        run: .\Build-Windows.ps1
+      - name: Upload complete Windows application
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClosePilot-Windows-Release
+          path: ClosePilot-Windows-Release.zip
