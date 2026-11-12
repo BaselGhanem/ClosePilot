@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet('enable-startup','disable-startup','migrate-legacy')]
+    [ValidateSet('enable-startup','disable-startup','migrate-legacy','start-agent')]
     [string]$Action
 )
 $ErrorActionPreference = 'Stop'
@@ -24,6 +24,16 @@ if ($Action -eq 'disable-startup') {
     Remove-Item -LiteralPath $link -Force -ErrorAction SilentlyContinue
     Write-Output 'Startup disabled.'
 }
+
+if ($Action -eq 'start-agent') {
+    if (-not (Test-Path -LiteralPath $agent)) { throw 'Agent file missing.' }
+    # Start-Process from a normal PowerShell host avoids Dart detached-process limitations.
+    $powershell = Join-Path $PSHOME 'powershell.exe'
+    $args = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"' -f $agent
+    $process = Start-Process -FilePath $powershell -ArgumentList $args -WorkingDirectory $root -WindowStyle Hidden -PassThru -ErrorAction Stop
+    Write-Output ('Agent launch requested, PID {0}' -f $process.Id)
+}
+
 if ($Action -eq 'migrate-legacy') {
     # Only the known previous script is retired, not other PowerShell processes.
     $legacy = Join-Path $env:LOCALAPPDATA 'AutoCloseCleaner\AutoCloseCleaner.ps1'
