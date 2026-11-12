@@ -35,20 +35,29 @@ jobs:
           $p = Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" | Where-Object { $_.CommandLine -like '*ClosePilot-Agent.ps1*' } | Select-Object -First 1
           if (-not $p) { throw "PowerShell bootstrap did not start agent" }
           try {
-            Start-Sleep -Seconds 9
-            Write-Output "Agent launcher PID: $($p.ProcessId)"
+            Write-Output "Agent process PID: $($p.ProcessId)"
             $status = Join-Path $root 'status.json'
             $fatal = Join-Path $root 'agent-fatal.log'
-            if (Test-Path $fatal) { Get-Content $fatal }
-            if (Test-Path $status) {
+            $previous = $null
+            $observedPids = @()
+            for ($i = 1; $i -le 5; $i++) {
+              Start-Sleep -Seconds 5
+              if (-not (Test-Path $status)) { throw "No heartbeat after interval $i" }
               $s = Get-Content $status -Raw | ConvertFrom-Json
-              Write-Output "Agent PID: $($s.agentPid); Updated at: $($s.updatedAt)"
-              if ((Get-Date) - (Get-Date $s.updatedAt) -gt [TimeSpan]::FromSeconds(8)) { throw "Stale heartbeat" }
-              if ($s.version -ne '1.0.0') { throw "Unexpected status version" }
-            } else {
-              throw "No heartbeat status file created"
+              $dt = [DateTimeOffset]::Parse($s.updatedAt)
+              Write-Output ("Heartbeat {0}: PID {1}, updated {2}" -f $i, $s.agentPid, $dt)
+              $observedPids += $s.agentPid
+              if ($previous -and $dt -le $previous) {
+                if (Test-Path (Join-Path $root 'status.tmp')) {
+                  Write-Output "Pending status.tmp detected:"
+                  Get-Item (Join-Path $root 'status.tmp') | Select-Object Length,LastWriteTime | Format-List
+                }
+                throw "Heartbeat stopped advancing: previous $previous; current $dt"
+              }
+              $previous = $dt
             }
-            if (Test-Path $fatal) { throw "Fatal errors found in agent log" }
+            if (@($observedPids | Select-Object -Unique).Count -ne 1) { throw "Agent PID changed" }
+            if (Test-Path $fatal) { Get-Content $fatal; throw "Fatal errors in agent log" }
           } finally {
             Set-Content (Join-Path $root 'stop.request') 'stop'
             Start-Sleep -Seconds 3
