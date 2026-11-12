@@ -1,0 +1,53 @@
+name: Smoke test Windows background agent
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/ClosePilot-Agent.ps1'
+      - '.github/workflows/agent-smoke.yml'
+
+jobs:
+  agent:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start and verify agent heartbeat
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:LOCALAPPDATA 'ClosePilot'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $agent = Join-Path $root 'ClosePilot-Agent.ps1'
+          Copy-Item -LiteralPath 'assets/ClosePilot-Agent.ps1' -Destination $agent -Force
+          $config = @{
+            monitorEnabled = $true
+            autoStart = $false
+            graceSeconds = 5
+            pollSeconds = 2
+            apps = @(@{id='chrome';label='Chrome';names=@('chrome');enabled=$true})
+          } | ConvertTo-Json -Depth 5
+          Set-Content -LiteralPath (Join-Path $root 'config.json') -Value $config -Encoding utf8
+          $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $agent + '"')) -WindowStyle Hidden -PassThru
+          try {
+            Start-Sleep -Seconds 9
+            Write-Output "Agent launcher PID: $($p.Id)"
+            $status = Join-Path $root 'status.json'
+            $fatal = Join-Path $root 'agent-fatal.log'
+            if (Test-Path $fatal) { Get-Content $fatal }
+            if (Test-Path $status) {
+              $s = Get-Content $status -Raw | ConvertFrom-Json
+              Write-Output "Agent PID: $($s.agentPid); Updated at: $($s.updatedAt)"
+              if ((Get-Date) - (Get-Date $s.updatedAt) -gt [TimeSpan]::FromSeconds(8)) { throw "Stale heartbeat" }
+              if ($s.version -ne '1.0.0') { throw "Unexpected status version" }
+            } else {
+              throw "No heartbeat status file created"
+            }
+            if (Test-Path $fatal) { throw "Fatal errors found in agent log" }
+          } finally {
+            Set-Content (Join-Path $root 'stop.request') 'stop'
+            Start-Sleep -Seconds 3
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          }
