@@ -15,6 +15,39 @@ jobs:
       - name: Windows build, tests, distributable zip
         shell: pwsh
         run: .\Build-Windows.ps1
+      - name: Verify GUI starts monitor (Windows integration smoke test)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Get-ChildItem -Path 'build\windows' -Filter 'ClosePilot.exe' -Recurse |
+            Where-Object { $_.DirectoryName -match 'Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClosePilot-Windows-Release
+          path: ClosePilot-Windows-Release.zip
+ } | Select-Object -First 1
+          if (-not $exe) { throw 'Windows EXE not found' }
+          $localDir = Join-Path $env:LOCALAPPDATA 'ClosePilot'
+          $process = Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -PassThru
+          try {
+            Start-Sleep -Seconds 18
+            Write-Output "GUI PID: $($process.Id), exited: $($process.HasExited)"
+            if (Test-Path $localDir) {
+              Get-ChildItem $localDir | Select-Object Name,Length,LastWriteTime | Format-Table
+              foreach ($name in @('ui-diagnostics.log','agent-fatal.log','events.jsonl')) {
+                $p = Join-Path $localDir $name
+                if (Test-Path $p) { Write-Output "=== $name ===";Get-Content $p -Tail 15 }
+              }
+            }
+            $status = Join-Path $localDir 'status.json'
+            if (-not (Test-Path $status)) { throw 'Flutter GUI did not start agent / status missing' }
+            $s = Get-Content $status -Raw | ConvertFrom-Json
+            if ((Get-Date)-(Get-Date $s.updatedAt) -gt [TimeSpan]::FromSeconds(12)) { throw 'Heartbeat stale' }
+            Write-Output "GUI integration passed: monitor PID $($s.agentPid)"
+          } finally {
+            Set-Content (Join-Path $localDir 'stop.request') 'stop' -ErrorAction SilentlyContinue
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
       - name: Upload complete Windows application
         uses: actions/upload-artifact@v4
         with:
