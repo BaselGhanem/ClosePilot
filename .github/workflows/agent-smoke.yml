@@ -63,8 +63,30 @@ jobs:
             $writeErrors = Join-Path $root 'status-write-errors.log'
             if (Test-Path $writeErrors) { Get-Content $writeErrors; throw "Heartbeat writer errors occurred" }
             if (Test-Path $fatal) { Get-Content $fatal; throw "Fatal errors in agent log" }
+            # Starting the app again must preserve a healthy monitor, not spawn duplicates.
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'ClosePilot-Setup.ps1') -Action start-agent
+            Start-Sleep -Seconds 3
+            $s = Get-Content $status -Raw | ConvertFrom-Json
+            if ($s.agentPid -ne $p.ProcessId) { throw "Healthy monitor was unnecessarily replaced" }
+            # A missing/stale process must be recoverable without a Windows restart.
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+            Start-Sleep -Milliseconds 500
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'ClosePilot-Setup.ps1') -Action start-agent
+            Start-Sleep -Seconds 6
+            $replacement = Get-Content $status -Raw | ConvertFrom-Json
+            if (($replacement.agentPid -eq $p.ProcessId) -or ($replacement.version -ne '1.0.1')) {
+              throw "Replacement monitor did not start"
+            }
+            if ((Get-Date) - ([DateTimeOffset]::Parse($replacement.updatedAt)).LocalDateTime -gt [TimeSpan]::FromSeconds(8)) {
+              throw "Replacement heartbeat is stale"
+            }
+            Write-Output ("Recovered from stale agent: old PID {0} -> new PID {1}" -f $p.ProcessId,$replacement.agentPid)
           } finally {
             Set-Content (Join-Path $root 'stop.request') 'stop'
             Start-Sleep -Seconds 3
-            Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+            $agents = @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
+              Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($agent, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
+            foreach ($runningAgent in $agents) {
+              Stop-Process -Id $runningAgent.ProcessId -Force -ErrorAction SilentlyContinue
+            }
           }
