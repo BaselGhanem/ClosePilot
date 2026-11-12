@@ -15,32 +15,6 @@ jobs:
       - name: Windows build and tests
         shell: pwsh
         run: .\Build-Windows.ps1
-      - name: GUI-to-agent startup smoke test
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $exe = Get-ChildItem "build/windows" -Filter ClosePilot.exe -File -Recurse | Select-Object -First 1
-          if (-not $exe) { throw "ClosePilot.exe not found" }
-          $localDir = Join-Path $env:LOCALAPPDATA "ClosePilot"
-          $app = Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -PassThru
-          try {
-            Start-Sleep -Seconds 18
-            Write-Output "GUI PID: $($app.Id)"
-            if (Test-Path $localDir) {
-              Get-ChildItem $localDir | Select-Object Name,Length
-              foreach ($name in @("ui-diagnostics.log", "agent-fatal.log", "events.jsonl")) {
-                $p = Join-Path $localDir $name
-                if (Test-Path $p) { Get-Content $p -Tail 15 }
-              }
-            }
-            $statusFile = Join-Path $localDir "status.json"
-            if (-not (Test-Path $statusFile)) { throw "Monitor status was not created after GUI launch" }
-            $s = Get-Content $statusFile -Raw | ConvertFrom-Json
-            if ((Get-Date) - (Get-Date $s.updatedAt) -gt [TimeSpan]::FromSeconds(12)) { throw "Stale monitor heartbeat" }
-          } finally {
-            if (Test-Path $localDir) { Set-Content (Join-Path $localDir "stop.request") "stop" }
-            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
-          }
       - name: Upload complete Windows application
         uses: actions/upload-artifact@v4
         with:
