@@ -1,4 +1,4 @@
-# ClosePilot agent v1.0.0 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.0.1 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -61,15 +61,37 @@ public static class ClosePilotWindows {
         } catch { }
     }
     function Write-Status($status) {
+        # Write a complete snapshot to a temporary file first.
+        # On some Windows configurations File.Replace fails on subsequent updates.
+        # An overwrite fallback keeps the heartbeat alive and records the failure.
+        $temporary = Join-Path $root ('status-{0}.tmp' -f $PID)
         try {
-            $temporary = Join-Path $root 'status.tmp'
-            $status | ConvertTo-Json -Compress -Depth 7 | Set-Content -LiteralPath $temporary -Encoding UTF8
+            $json = $status | ConvertTo-Json -Compress -Depth 7
+            $utf8 = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($temporary, $json, $utf8)
             if (Test-Path -LiteralPath $statusFile) {
-                [System.IO.File]::Replace($temporary, $statusFile, $null)
+                try {
+                    [System.IO.File]::Replace($temporary, $statusFile, $null)
+                } catch {
+                    $replaceError = $_.Exception.Message
+                    # Avoid leaving status.json stale if atomic replacement is unsupported.
+                    [System.IO.File]::Copy($temporary, $statusFile, $true)
+                    [System.IO.File]::Delete($temporary)
+                    if (-not $script:atomicReplaceWarned) {
+                        $script:atomicReplaceWarned = $true
+                        Write-Event 'warning' '' ('Atomic heartbeat update unavailable. Overwrite fallback active: {0}' -f $replaceError)
+                    }
+                }
             } else {
                 [System.IO.File]::Move($temporary, $statusFile)
             }
-        } catch { }
+            $script:lastSuccessfulStatus = Get-Date
+        } catch {
+            $message = ('{0} | STATUS_WRITE_ERROR | PID {1} | {2}' -f (Get-Date).ToString('o'), $PID, $_.Exception.Message)
+            try {
+                Add-Content -LiteralPath (Join-Path $root 'status-write-errors.log') -Value $message -Encoding UTF8
+            } catch { }
+        }
     }
     $config = $null
     $tracked = @{}
@@ -180,7 +202,7 @@ public static class ClosePilotWindows {
         }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.0.0'
+            version = '1.0.1'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled
