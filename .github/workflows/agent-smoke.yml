@@ -57,6 +57,11 @@ jobs:
               $previous = $dt
             }
             if (@($observedPids | Select-Object -Unique).Count -ne 1) { throw "Agent PID changed" }
+            if ($s.version -ne '1.0.1') { throw "Unexpected version: $($s.version)" }
+            $events = Join-Path $root 'events.jsonl'
+            if (Test-Path $events) { Get-Content $events -Tail 8 }
+            $writeErrors = Join-Path $root 'status-write-errors.log'
+            if (Test-Path $writeErrors) { Get-Content $writeErrors; throw "Heartbeat writer errors occurred" }
             if (Test-Path $fatal) { Get-Content $fatal; throw "Fatal errors in agent log" }
           } finally {
             Set-Content (Join-Path $root 'stop.request') 'stop'
