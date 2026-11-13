@@ -31,6 +31,8 @@ Future<void> main() async {
       await windowManager.ensureInitialized();
       await windowManager.setTitle('ClosePilot | Basel Edition');
       await windowManager.setPreventClose(true);
+      await windowManager.setTitleBarStyle(TitleBarStyle.hidden,
+          windowButtonVisibility: false);
       closePilotWindowHooksReady = true;
     } catch (_) {
       closePilotWindowHooksReady = false;
@@ -55,28 +57,28 @@ class AppRule {
   });
 
   AppRule copyWith({bool? enabled}) => AppRule(
-    id: id,
-    label: label,
-    names: names,
-    enabled: enabled ?? this.enabled,
-    removable: removable,
-  );
+        id: id,
+        label: label,
+        names: names,
+        enabled: enabled ?? this.enabled,
+        removable: removable,
+      );
 
   factory AppRule.fromJson(Map<String, dynamic> j) => AppRule(
-    id: '${j['id'] ?? ''}',
-    label: '${j['label'] ?? ''}',
-    names: (j['names'] as List<dynamic>? ?? []).map((e) => '$e').toList(),
-    enabled: j['enabled'] == true,
-    removable: j['removable'] == true,
-  );
+        id: '${j['id'] ?? ''}',
+        label: '${j['label'] ?? ''}',
+        names: (j['names'] as List<dynamic>? ?? []).map((e) => '$e').toList(),
+        enabled: j['enabled'] == true,
+        removable: j['removable'] == true,
+      );
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'label': label,
-    'names': names,
-    'enabled': enabled,
-    'removable': removable,
-  };
+        'id': id,
+        'label': label,
+        'names': names,
+        'enabled': enabled,
+        'removable': removable,
+      };
 }
 
 enum WindowLayout {
@@ -113,71 +115,70 @@ class MonitorConfig {
   });
 
   factory MonitorConfig.initial() => const MonitorConfig(
-    monitorEnabled: true,
-    autoStart: true,
-    minimizeToTray: true,
-    estimatedSecondsPerCleanup: 20,
-    graceSeconds: 20,
-    pollSeconds: 3,
-    apps: [
-      AppRule(
-        id: 'chrome',
-        label: 'Google Chrome',
-        names: ['chrome'],
-        enabled: true,
-      ),
-      AppRule(id: 'claude', label: 'Claude', names: ['claude'], enabled: true),
-      AppRule(
-        id: 'chatgpt',
-        label: 'ChatGPT',
-        names: ['ChatGPT'],
-        enabled: true,
-      ),
-      AppRule(
-        id: 'steam',
-        label: 'Steam',
-        names: ['steam', 'steamwebhelper'],
-        enabled: false,
-      ),
-      AppRule(
-        id: 'teams',
-        label: 'Microsoft Teams',
-        names: ['ms-teams'],
-        enabled: false,
-      ),
-      AppRule(
-        id: 'edge',
-        label: 'Microsoft Edge',
-        names: ['msedge'],
-        enabled: false,
-      ),
-    ],
-  );
+        monitorEnabled: true,
+        autoStart: true,
+        minimizeToTray: true,
+        estimatedSecondsPerCleanup: 20,
+        graceSeconds: 20,
+        pollSeconds: 3,
+        apps: [
+          AppRule(
+            id: 'chrome',
+            label: 'Google Chrome',
+            names: ['chrome'],
+            enabled: true,
+          ),
+          AppRule(
+              id: 'claude', label: 'Claude', names: ['claude'], enabled: true),
+          AppRule(
+            id: 'chatgpt',
+            label: 'ChatGPT',
+            names: ['ChatGPT'],
+            enabled: true,
+          ),
+          AppRule(
+            id: 'steam',
+            label: 'Steam',
+            names: ['steam', 'steamwebhelper'],
+            enabled: false,
+          ),
+          AppRule(
+            id: 'teams',
+            label: 'Microsoft Teams',
+            names: ['ms-teams'],
+            enabled: false,
+          ),
+          AppRule(
+            id: 'edge',
+            label: 'Microsoft Edge',
+            names: ['msedge'],
+            enabled: false,
+          ),
+        ],
+      );
 
   factory MonitorConfig.fromJson(Map<String, dynamic> j) => MonitorConfig(
-    language: j['language'] == 'ar' ? 'ar' : 'en',
-    windowLayout: WindowLayout.values.firstWhere(
-      (layout) => layout.name == j['windowLayout'],
-      orElse: () => WindowLayout.standard,
-    ),
-    monitorEnabled: j['monitorEnabled'] != false,
-    autoStart: j['autoStart'] != false,
-    minimizeToTray: j['minimizeToTray'] != false,
-    estimatedSecondsPerCleanup:
-        ((j['estimatedSecondsPerCleanup'] as num?)?.toInt() ?? 20)
-            .clamp(5, 120)
-            .toInt(),
-    graceSeconds: ((j['graceSeconds'] as num?)?.toInt() ?? 20)
-        .clamp(5, 120)
-        .toInt(),
-    pollSeconds: ((j['pollSeconds'] as num?)?.toInt() ?? 3)
-        .clamp(2, 15)
-        .toInt(),
-    apps: (j['apps'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(AppRule.fromJson)
-        .toList(),
-  );
+        language: j['language'] == 'ar' ? 'ar' : 'en',
+        windowLayout: WindowLayout.values.firstWhere(
+          (layout) => layout.name == j['windowLayout'],
+          orElse: () => WindowLayout.standard,
+        ),
+        monitorEnabled: j['monitorEnabled'] != false,
+        autoStart: j['autoStart'] != false,
+        minimizeToTray: j['minimizeToTray'] != false,
+        estimatedSecondsPerCleanup:
+            ((j['estimatedSecondsPerCleanup'] as num?)?.toInt() ?? 20)
+                .clamp(5, 120)
+                .toInt(),
+        graceSeconds:
+            ((j['graceSeconds'] as num?)?.toInt() ?? 20).clamp(5, 120).toInt(),
+        pollSeconds:
+            ((j['pollSeconds'] as num?)?.toInt() ?? 3).clamp(2, 15).toInt(),
+        apps: (j['apps'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map(AppRule.fromJson)
+            .toList(),
+      );
 
   MonitorConfig copyWith({
     String? language,
@@ -188,30 +189,31 @@ class MonitorConfig {
     int? estimatedSecondsPerCleanup,
     int? graceSeconds,
     List<AppRule>? apps,
-  }) => MonitorConfig(
-    language: language ?? this.language,
-    windowLayout: windowLayout ?? this.windowLayout,
-    monitorEnabled: monitorEnabled ?? this.monitorEnabled,
-    autoStart: autoStart ?? this.autoStart,
-    minimizeToTray: minimizeToTray ?? this.minimizeToTray,
-    estimatedSecondsPerCleanup:
-        estimatedSecondsPerCleanup ?? this.estimatedSecondsPerCleanup,
-    graceSeconds: graceSeconds ?? this.graceSeconds,
-    pollSeconds: pollSeconds,
-    apps: apps ?? this.apps,
-  );
+  }) =>
+      MonitorConfig(
+        language: language ?? this.language,
+        windowLayout: windowLayout ?? this.windowLayout,
+        monitorEnabled: monitorEnabled ?? this.monitorEnabled,
+        autoStart: autoStart ?? this.autoStart,
+        minimizeToTray: minimizeToTray ?? this.minimizeToTray,
+        estimatedSecondsPerCleanup:
+            estimatedSecondsPerCleanup ?? this.estimatedSecondsPerCleanup,
+        graceSeconds: graceSeconds ?? this.graceSeconds,
+        pollSeconds: pollSeconds,
+        apps: apps ?? this.apps,
+      );
 
   Map<String, dynamic> toJson() => {
-    'language': language,
-    'windowLayout': windowLayout.name,
-    'monitorEnabled': monitorEnabled,
-    'autoStart': autoStart,
-    'minimizeToTray': minimizeToTray,
-    'estimatedSecondsPerCleanup': estimatedSecondsPerCleanup,
-    'graceSeconds': graceSeconds,
-    'pollSeconds': pollSeconds,
-    'apps': apps.map((e) => e.toJson()).toList(),
-  };
+        'language': language,
+        'windowLayout': windowLayout.name,
+        'monitorEnabled': monitorEnabled,
+        'autoStart': autoStart,
+        'minimizeToTray': minimizeToTray,
+        'estimatedSecondsPerCleanup': estimatedSecondsPerCleanup,
+        'graceSeconds': graceSeconds,
+        'pollSeconds': pollSeconds,
+        'apps': apps.map((e) => e.toJson()).toList(),
+      };
 }
 
 class RuleStatus {
@@ -230,12 +232,12 @@ class RuleStatus {
   });
 
   factory RuleStatus.fromJson(Map<String, dynamic> j) => RuleStatus(
-    count: (j['count'] as num?)?.toInt() ?? 0,
-    memoryMb: (j['memoryMb'] as num?)?.toDouble() ?? 0,
-    hasWindow: j['hasWindow'] == true,
-    mode: '${j['mode'] ?? 'not-running'}',
-    remainingSeconds: (j['remainingSeconds'] as num?)?.toInt(),
-  );
+        count: (j['count'] as num?)?.toInt() ?? 0,
+        memoryMb: (j['memoryMb'] as num?)?.toDouble() ?? 0,
+        hasWindow: j['hasWindow'] == true,
+        mode: '${j['mode'] ?? 'not-running'}',
+        remainingSeconds: (j['remainingSeconds'] as num?)?.toInt(),
+      );
 }
 
 class CleanerEvent {
@@ -256,13 +258,13 @@ class CleanerEvent {
   });
 
   factory CleanerEvent.fromJson(Map<String, dynamic> j) => CleanerEvent(
-    timestamp: DateTime.tryParse('${j['at']}') ?? DateTime(2000),
-    kind: '${j['kind'] ?? 'info'}',
-    appId: '${j['app'] ?? ''}',
-    message: '${j['message'] ?? ''}',
-    pid: (j['pid'] as num?)?.toInt() ?? 0,
-    observedMb: (j['observedMb'] as num?)?.toDouble() ?? 0,
-  );
+        timestamp: DateTime.tryParse('${j['at']}') ?? DateTime(2000),
+        kind: '${j['kind'] ?? 'info'}',
+        appId: '${j['app'] ?? ''}',
+        message: '${j['message'] ?? ''}',
+        pid: (j['pid'] as num?)?.toInt() ?? 0,
+        observedMb: (j['observedMb'] as num?)?.toDouble() ?? 0,
+      );
 }
 
 class ClosePilotController extends ChangeNotifier {
@@ -281,6 +283,8 @@ class ClosePilotController extends ChangeNotifier {
   bool _refreshing = false;
   bool ready = false;
   Map<String, dynamic> performance = {};
+  List<(String, String)> openApps = [];
+  String? statusError;
   Future<void> _configWrite = Future<void>.value();
   late final Directory home;
 
@@ -449,9 +453,8 @@ class ClosePilotController extends ChangeNotifier {
       final uiDiagnostic = File('${home.path}\\ui-diagnostics.log');
       if (await uiDiagnostic.exists()) {
         final lines = await uiDiagnostic.readAsLines();
-        final stderr = lines
-            .where((line) => line.contains('AGENT STDERR:'))
-            .toList();
+        final stderr =
+            lines.where((line) => line.contains('AGENT STDERR:')).toList();
         if (stderr.isNotEmpty) detail = stderr.last;
       }
       final fatal = File('${home.path}\\agent-fatal.log');
@@ -573,7 +576,8 @@ class ClosePilotController extends ChangeNotifier {
     if (names.any((n) => unsafe.contains(n.toLowerCase()))) {
       return 'Windows/system processes are not allowed.';
     }
-    final existing = (current ?? config).apps
+    final existing = (current ?? config)
+        .apps
         .expand((a) => a.names)
         .map((e) => e.toLowerCase())
         .toSet();
@@ -612,12 +616,12 @@ class ClosePilotController extends ChangeNotifier {
   }
 
   Future<void> deleteRule(String id) => _saveConfig(
-    (current) => current.copyWith(
-      apps: current.apps
-          .where((app) => app.id != id || !app.removable)
-          .toList(),
-    ),
-  );
+        (current) => current.copyWith(
+          apps: current.apps
+              .where((app) => app.id != id || !app.removable)
+              .toList(),
+        ),
+      );
 
   Future<void> clearHistory() async {
     final file = File('${home.path}\\events.jsonl');
@@ -631,9 +635,28 @@ class ClosePilotController extends ChangeNotifier {
   }
 
   Future<void> openDataDirectory() async {
-    await Process.start('explorer.exe', [
-      home.path,
-    ], mode: ProcessStartMode.detached);
+    await Process.start(
+        'explorer.exe',
+        [
+          home.path,
+        ],
+        mode: ProcessStartMode.detached);
+  }
+
+  Future<Map<String, dynamic>?> _readStatus(File file) async {
+    for (var attempt = 0;; attempt++) {
+      try {
+        return jsonDecode(_stripBom(await file.readAsString()))
+            as Map<String, dynamic>;
+      } on FileSystemException catch (error) {
+        final code = error.osError?.errorCode;
+        if (code == 2 || code == 3) return null;
+        if ((code != 32 && code != 33) || attempt == 5) rethrow;
+      } on FormatException {
+        if (attempt == 5) rethrow;
+      }
+      await Future<void>.delayed(Duration(milliseconds: 35 * (attempt + 1)));
+    }
   }
 
   Future<void> refresh() async {
@@ -641,30 +664,32 @@ class ClosePilotController extends ChangeNotifier {
     _refreshing = true;
     try {
       final statusFile = File('${home.path}\\status.json');
-      if (await statusFile.exists()) {
-        final raw = jsonDecode(
-          _stripBom(await statusFile.readAsString()),
-        ) as Map<String, dynamic>;
+      final raw = await _readStatus(statusFile);
+      statusError = null;
+      if (raw != null) {
+        openApps = (raw['openApps'] as Map<String, dynamic>? ?? {})
+            .entries
+            .where((app) => app.value is String)
+            .map((app) => (app.key, app.value as String))
+            .toList();
         updatedAt = DateTime.tryParse('${raw['updatedAt']}');
-        online =
-            updatedAt != null &&
+        online = updatedAt != null &&
             DateTime.now().difference(updatedAt!).inSeconds.abs() < 12;
-        performance = online
-            ? (raw['performance'] as Map<String, dynamic>? ?? {})
-            : {};
+        performance =
+            online ? (raw['performance'] as Map<String, dynamic>? ?? {}) : {};
         statuses = (raw['apps'] as Map<String, dynamic>? ?? {}).map(
           (k, v) => MapEntry(k, RuleStatus.fromJson(v as Map<String, dynamic>)),
         );
       } else {
         online = false;
         performance = {};
+        openApps = [];
       }
       final log = File('${home.path}\\events.jsonl');
       if (await log.exists()) {
         final lines = await log.readAsLines();
-        final tail = lines.length > 250
-            ? lines.sublist(lines.length - 250)
-            : lines;
+        final tail =
+            lines.length > 250 ? lines.sublist(lines.length - 250) : lines;
         final parsed = <CleanerEvent>[];
         var sessions = 0;
         var manualApps = 0;
@@ -703,7 +728,13 @@ class ClosePilotController extends ChangeNotifier {
         events = parsed.reversed.toList();
       }
     } catch (e) {
-      error = 'Could not refresh monitor status: $e';
+      if (e is FileSystemException &&
+          const [32, 33].contains(e.osError?.errorCode)) {
+        online = updatedAt != null &&
+            DateTime.now().difference(updatedAt!).inSeconds.abs() < 12;
+      } else {
+        statusError = 'Could not refresh monitor status: $e';
+      }
     } finally {
       _refreshing = false;
       notifyListeners();
@@ -785,6 +816,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   bool get _arabic => controller.config.language == 'ar';
   String _tr(String english) =>
       _arabic ? (arabicText[english] ?? english) : english;
+  bool _showBoot = true;
+  bool _resizing = false;
   bool _trayReady = false;
   bool _backgroundBusy = false;
   bool _checkingUpdates = false;
@@ -800,6 +833,9 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   @override
   void initState() {
     super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 850), () {
+      if (mounted) setState(() => _showBoot = false);
+    });
     unawaited(_initializeAndCheckUpdates());
     if (Platform.isWindows && closePilotWindowHooksReady) {
       windowManager.addListener(this);
@@ -893,8 +929,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                       release.notes.isEmpty
                           ? _tr('Maintenance and improvements.')
                           : release.notes.length > 2800
-                          ? '${release.notes.substring(0, 2800)}…'
-                          : release.notes,
+                              ? '${release.notes.substring(0, 2800)}…'
+                              : release.notes,
                       style: const TextStyle(
                         color: kMuted,
                         height: 1.5,
@@ -984,7 +1020,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       final folder = Directory('$base\\ClosePilot');
       await folder.create(recursive: true);
       final bytes = await rootBundle.load('assets/closepilot.ico');
-      final iconPath = File('${folder.path}\\closepilot-tray.ico');
+      final iconPath = File('${folder.path}\\closepilot-tray-v131.ico');
       await iconPath.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
       await trayManager.setIcon(iconPath.path);
       await trayManager.setToolTip('ClosePilot • Basel Edition');
@@ -1002,19 +1038,19 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   }
 
   Future<void> _refreshTrayMenu() => trayManager.setContextMenu(
-    Menu(
-      items: [
-        MenuItem(key: 'open', label: _tr('Open ClosePilot')),
-        MenuItem(key: 'background', label: _tr('Run in background')),
-        MenuItem.separator(),
-        MenuItem(key: 'exit_ui', label: _tr('Close window and tray')),
-        MenuItem(
-          key: 'exit_all',
-          label: _tr('Exit ClosePilot and stop monitoring'),
+        Menu(
+          items: [
+            MenuItem(key: 'open', label: _tr('Open ClosePilot')),
+            MenuItem(key: 'background', label: _tr('Run in background')),
+            MenuItem.separator(),
+            MenuItem(key: 'exit_ui', label: _tr('Close window and tray')),
+            MenuItem(
+              key: 'exit_all',
+              label: _tr('Exit ClosePilot and stop monitoring'),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   Future<void> _resize(WindowLayout layout) async {
     if (!closePilotWindowHooksReady) return;
@@ -1238,7 +1274,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
         stopped == 0 && failed == 0
             ? _tr('No selected apps were running.')
             : '${_tr('Closed processes')} $stopped · ${_tr('Apps')} $apps'
-                  '${failed > 0 ? " · ${_tr('Failed processes')} $failed" : ""}',
+                '${failed > 0 ? " · ${_tr('Failed processes')} $failed" : ""}',
         error: failed > 0,
       );
     } catch (e) {
@@ -1249,91 +1285,58 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   }
 
   Future<void> _addApp() async {
-    var label = '';
-    var names = '';
-    String? validation;
-    final result = await showDialog<List<String>>(
+    await controller.refresh();
+    if (!mounted) return;
+    final picked = await showDialog<(String, String)>(
       context: _navigator.currentContext!,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (ctx, update) => AlertDialog(
-          backgroundColor: kSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: const BorderSide(color: kBorder),
-          ),
-          scrollable: true,
-          title: Text(_tr('Add an application')),
-          content: SizedBox(
+      builder: (dialog) => AlertDialog(
+        title: Text(_tr('Add an application')),
+        content: SizedBox(
             width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _tr(
-                    'ClosePilot will only terminate these processes after a visible window is opened and then closed.',
-                  ),
-                  style: TextStyle(color: kMuted, height: 1.5),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  autofocus: true,
-                  onChanged: (value) => label = value,
-                  decoration: InputDecoration(
-                    labelText: _tr('Application name'),
-                    hintText: _tr('e.g. Notepad'),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  onChanged: (value) => names = value,
-                  decoration: InputDecoration(
-                    labelText: _tr('Process name (without .exe)'),
-                    hintText: _tr('e.g. notepad'),
-                    helperText: _tr(
-                      'See Task Manager > Details. Separate multiple names with commas.',
-                    ),
-                    helperMaxLines: 2,
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                if (validation != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _tr(validation!),
-                    style: const TextStyle(color: Color(0xFFFF949D)),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(_tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                final issue = controller.validateNewRule(label, names);
-                if (issue != null) {
-                  update(() => validation = issue);
-                } else {
-                  Navigator.pop(ctx, [label, names]);
-                }
+            height: 270,
+            child: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) {
+                final apps = controller.openApps
+                    .where((app) =>
+                        controller.validateNewRule(app.$2, app.$1) == null)
+                    .toList();
+                if (apps.isEmpty)
+                  return Center(
+                      child: Text(
+                    _tr('No eligible apps with open windows. Open an app and wait a moment.'),
+                    textAlign: TextAlign.center,
+                  ));
+                return ListView.builder(
+                  itemCount: apps.length,
+                  itemBuilder: (context, index) {
+                    final app = apps[index];
+                    return ListTile(
+                      leading:
+                          const Icon(Icons.apps_rounded, color: kAccentBright),
+                      title: Text(app.$2,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text('${app.$1}.exe'),
+                      trailing: const Icon(Icons.add_circle_outline_rounded),
+                      onTap: () => Navigator.pop(dialog, app),
+                    );
+                  },
+                );
               },
-              child: Text(_tr('Add app')),
-            ),
-          ],
-        ),
+            )),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: Text(_tr('Cancel'))),
+        ],
       ),
     );
-    if (result != null && mounted) {
-      try {
-        await controller.addRule(result[0], result[1]);
-        _toast('${_tr('Added to monitoring')} · ${result[0]}');
-      } catch (e) {
-        _toast('$e', error: true);
-      }
+    if (picked == null || !mounted) return;
+    try {
+      await controller.addRule(picked.$2, picked.$1);
+      _toast('${_tr('Added to monitoring')} · ${picked.$2}');
+    } catch (e) {
+      _toast('$e', error: true);
     }
   }
 
@@ -1410,12 +1413,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
               final wide = constraints.maxWidth >= 930;
               return Column(
                 children: [
-                  if (controller.loading)
-                    const LinearProgressIndicator(
-                      minHeight: 2,
-                      color: kAccentBright,
-                      backgroundColor: kSurface,
-                    ),
+                  if (closePilotWindowHooksReady) _titleBar(),
                   Expanded(
                     child: Row(
                       children: [
@@ -1425,11 +1423,13 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                             children: [
                               if (!wide) _compactNavigation(),
                               Expanded(
-                                child: switch (selectedPage) {
-                                  0 => _dashboard(wide),
-                                  1 => _history(),
-                                  _ => _settings(),
-                                },
+                                child: _showBoot
+                                    ? _bootPanel()
+                                    : switch (selectedPage) {
+                                        0 => _dashboard(wide),
+                                        1 => _history(),
+                                        _ => _settings(),
+                                      },
                               ),
                             ],
                           ),
@@ -1446,112 +1446,224 @@ class _ClosePilotAppState extends State<ClosePilotApp>
     );
   }
 
+  Future<void> _chooseLayout(WindowLayout layout) async {
+    if (_resizing) return;
+    setState(() => _resizing = true);
+    try {
+      await _resize(layout);
+      await controller.setWindowLayout(layout);
+    } catch (e) {
+      _toast('${_tr('Could not resize window')}: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _resizing = false);
+    }
+  }
+
+  Future<void> _toggleMaximize() async {
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  }
+
+  Widget _titleBar() => Container(
+        height: 40,
+        color: const Color(0xFF0C171F),
+        child: Row(textDirection: TextDirection.ltr, children: [
+          Expanded(
+              child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => windowManager.startDragging(),
+            onDoubleTap: _toggleMaximize,
+            child: const SizedBox.expand(),
+          )),
+          for (final (layout, icon, label) in const [
+            (WindowLayout.compact, Icons.crop_square_rounded, 'Compact'),
+            (WindowLayout.portrait, Icons.crop_portrait_rounded, 'Portrait'),
+            (WindowLayout.standard, Icons.web_asset_rounded, 'Standard'),
+            (WindowLayout.wide, Icons.crop_landscape_rounded, 'Wide'),
+          ])
+            _titleButton(
+                icon,
+                _tr(label),
+                controller.ready && !controller.loading && !_resizing
+                    ? () => _chooseLayout(layout)
+                    : null,
+                selected: controller.config.windowLayout == layout),
+          const SizedBox(width: 4),
+          _titleButton(Icons.remove_rounded, _tr('Minimize window'),
+              windowManager.minimize),
+          _titleButton(Icons.filter_none_rounded, _tr('Maximize or restore'),
+              _toggleMaximize),
+          _titleButton(
+              Icons.close_rounded, _tr('Close window'), windowManager.close),
+        ]),
+      );
+
+  Widget _titleButton(IconData icon, String label, VoidCallback? action,
+          {bool selected = false}) =>
+      IconButton(
+        tooltip: label,
+        onPressed: action,
+        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, size: 17),
+        style: IconButton.styleFrom(
+          foregroundColor: selected ? kAccentBright : kMuted,
+          backgroundColor: selected ? kAccent.withValues(alpha: .16) : null,
+        ),
+      );
+
+  Widget _bootPanel() => Center(
+        child: SizedBox(
+            width: 280,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.terminal_rounded,
+                    size: 34, color: kAccentBright),
+                const SizedBox(height: 14),
+                Text(_tr('Basel Ghanem'),
+                    style: const TextStyle(
+                        fontSize: 25, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 10),
+                const Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text('> SELECT metrics FROM windows;',
+                      style: TextStyle(
+                        fontFamily: 'Consolas',
+                        color: kAccentBright,
+                        fontSize: 13,
+                      )),
+                ),
+                const SizedBox(height: 14),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 800),
+                  builder: (context, progress, _) => LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 2,
+                    color: kAccentBright,
+                    backgroundColor: kSurfaceRaised,
+                  ),
+                ),
+              ],
+            )),
+      );
+
   Widget _sidebar() => Container(
-    width: 250,
-    decoration: const BoxDecoration(
-      color: Color(0xFF0C171F),
-      border: Border(right: BorderSide(color: kBorder)),
-    ),
-    padding: const EdgeInsets.fromLTRB(18, 32, 18, 24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 44),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [kAccent, Color(0xFF066A70)],
-                  ),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: const Text(
-                  'BG',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: -1,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        width: 250,
+        decoration: const BoxDecoration(
+          color: Color(0xFF0C171F),
+          border: Border(right: BorderSide(color: kBorder)),
+        ),
+        padding: const EdgeInsets.fromLTRB(18, 32, 18, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 44),
+              child: Row(
                 children: [
-                  Text(
-                    'ClosePilot',
-                    style: TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.6,
+                  Container(
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [kAccent, Color(0xFF066A70)],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Text(
+                      'BG',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -1,
+                      ),
                     ),
                   ),
-                  Text(
-                    _tr('BASEL EDITION'),
-                    style: TextStyle(
-                      color: kAccentBright,
-                      fontSize: 9,
-                      letterSpacing: 2,
-                    ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ClosePilot',
+                        style: TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.6,
+                        ),
+                      ),
+                      Text(
+                        _tr('BASEL EDITION'),
+                        style: TextStyle(
+                          color: kAccentBright,
+                          fontSize: 9,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            _navigationTile(Icons.space_dashboard_outlined, _tr('Overview'), 0),
+            const SizedBox(height: 9),
+            _navigationTile(Icons.history_rounded, _tr('Activity log'), 1),
+            const SizedBox(height: 9),
+            _navigationTile(Icons.tune_rounded, _tr('Settings'), 2),
+            const Spacer(),
+            _onlineCard(),
+            const SizedBox(height: 18),
+            const Padding(
+              padding: EdgeInsets.only(left: 12),
+              child: Text(
+                'BY BASEL  •  V$kClosePilotVersion',
+                style:
+                    TextStyle(color: kMuted, fontSize: 10, letterSpacing: 1.1),
+              ),
+            ),
+          ],
         ),
-        _navigationTile(Icons.space_dashboard_outlined, _tr('Overview'), 0),
-        const SizedBox(height: 9),
-        _navigationTile(Icons.history_rounded, _tr('Activity log'), 1),
-        const SizedBox(height: 9),
-        _navigationTile(Icons.tune_rounded, _tr('Settings'), 2),
-        const Spacer(),
-        _onlineCard(),
-        const SizedBox(height: 18),
-        const Padding(
-          padding: EdgeInsets.only(left: 12),
-          child: Text(
-            'BY BASEL  •  V$kClosePilotVersion',
-            style: TextStyle(color: kMuted, fontSize: 10, letterSpacing: 1.1),
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 
   Widget _compactNavigation() => Container(
-    height: 68,
-    padding: const EdgeInsets.symmetric(horizontal: 15),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: kBorder)),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.blur_on_rounded, color: kAccentBright),
-        const SizedBox(width: 7),
-        Text(
-          _tr('ClosePilot / Basel'),
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+        height: 68,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: kBorder)),
         ),
-        const Spacer(),
-        ...[
-          Icons.dashboard_outlined,
-          Icons.history_outlined,
-          Icons.settings_outlined,
-        ].asMap().entries.map(
-          (e) => IconButton(
-            tooltip: [_tr('Overview'), _tr('Activity'), _tr('Settings')][e.key],
-            color: selectedPage == e.key ? kAccentBright : kMuted,
-            onPressed: () => setState(() => selectedPage = e.key),
-            icon: Icon(e.value),
-          ),
+        child: Row(
+          children: [
+            const Icon(Icons.blur_on_rounded, color: kAccentBright),
+            const SizedBox(width: 7),
+            Text(
+              _tr('ClosePilot / Basel'),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
+            const Spacer(),
+            ...[
+              Icons.dashboard_outlined,
+              Icons.history_outlined,
+              Icons.settings_outlined,
+            ].asMap().entries.map(
+                  (e) => IconButton(
+                    tooltip: [
+                      _tr('Overview'),
+                      _tr('Activity'),
+                      _tr('Settings')
+                    ][e.key],
+                    color: selectedPage == e.key ? kAccentBright : kMuted,
+                    onPressed: () => setState(() => selectedPage = e.key),
+                    icon: Icon(e.value),
+                  ),
+                ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   Widget _navigationTile(IconData icon, String title, int page) {
     final active = selectedPage == page;
@@ -1592,222 +1704,226 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   }
 
   Widget _onlineCard() => Container(
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(
-      color: kSurface,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: kBorder),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.circle,
-              size: 9,
-              color: controller.online ? kAccentBright : kWarn,
+            Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 9,
+                  color: controller.online ? kAccentBright : kWarn,
+                ),
+                const SizedBox(width: 9),
+                Text(
+                  controller.loading
+                      ? _tr('Connecting to monitor...')
+                      : controller.online
+                          ? _tr('Agent is running')
+                          : _tr('Agent is offline'),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
-            const SizedBox(width: 9),
+            const SizedBox(height: 8),
             Text(
               controller.loading
-                  ? _tr('Connecting to monitor...')
+                  ? _tr('Getting your background engine ready.')
                   : controller.online
-                  ? _tr('Agent is running')
-                  : _tr('Agent is offline'),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ? _tr('Monitoring runs independently of this window.')
+                      : _tr(
+                          'Cleanup is NOT running. Open Settings to view diagnostics.',
+                        ),
+              style: const TextStyle(fontSize: 11, color: kMuted, height: 1.5),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          controller.loading
-              ? _tr('Getting your background engine ready.')
-              : controller.online
-              ? _tr('Monitoring runs independently of this window.')
-              : _tr(
-                  'Cleanup is NOT running. Open Settings to view diagnostics.',
-                ),
-          style: const TextStyle(fontSize: 11, color: kMuted, height: 1.5),
-        ),
-      ],
-    ),
-  );
+      );
 
   Widget _dashboard(bool wide) => ListView(
-    padding: EdgeInsets.symmetric(horizontal: wide ? 37 : 20, vertical: 32),
-    children: [
-      _header(
-        _tr('Welcome back, Basel'),
-        _tr('Your personal Windows performance control center.'),
-        action: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _trayReady && controller.online
-                  ? _runInBackground
-                  : null,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
-              label: Text(_tr('Run in background')),
-            ),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF8E3647),
-              ),
-              onPressed:
-                  !controller.ready || controller.loading || _backgroundBusy
-                  ? null
-                  : _confirmCloseAll,
-              icon: const Icon(Icons.power_settings_new_rounded, size: 17),
-              label: Text(_tr('CLOSE ALL')),
-            ),
-            IconButton.outlined(
-              onPressed: () => controller.refresh(),
-              icon: const Icon(Icons.refresh_rounded),
-              tooltip: _tr('Refresh'),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 27),
-      _hero(),
-      const SizedBox(height: 20),
-      _performancePanel(),
-      if (!controller.online && !controller.loading) ...[
-        const SizedBox(height: 15),
-        Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: const Color(0xFF34231C),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: kWarn.withValues(alpha: .55)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: kWarn),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  controller.error ??
-                      _tr('Background monitor is offline. Cleanup cannot run.'),
-                  style: const TextStyle(fontSize: 12, color: kInk),
-                ),
-              ),
-              TextButton(
-                onPressed: () => controller.openDataDirectory(),
-                child: Text(_tr('Diagnostics folder')),
-              ),
-            ],
-          ),
-        ),
-      ],
-      const SizedBox(height: 24),
-      LayoutBuilder(
-        builder: (ctx, box) {
-          final columns = box.maxWidth > 850 ? 4 : (box.maxWidth > 460 ? 2 : 1);
-          final spacing = 14.0;
-          final width = (box.maxWidth - (columns - 1) * spacing) / columns;
-          final tiles = [
-            _metric(
-              Icons.layers_outlined,
-              _tr('Active processes'),
-              '${controller.processCount}',
-              _tr('Across watched applications'),
-            ),
-            _metric(
-              Icons.memory_outlined,
-              _tr('Observed memory'),
-              _formatMemory(controller.observedMb),
-              _tr('Working sets, not freed RAM'),
-            ),
-            _metric(
-              Icons.auto_awesome_outlined,
-              _tr('Auto cleanups'),
-              '${controller.automaticCleanupSessions}',
-              _tr('Completed automatic sessions'),
-            ),
-            _metric(
-              Icons.hourglass_top_rounded,
-              _tr('Est. time saved'),
-              controller.estimatedTimeSaved,
-              '${_tr('Estimated seconds per cleanup')} · ${controller.config.estimatedSecondsPerCleanup}',
-            ),
-          ];
-          return Wrap(
-            spacing: spacing,
-            runSpacing: spacing,
-            children: [
-              for (final tile in tiles) SizedBox(width: width, child: tile),
-            ],
-          );
-        },
-      ),
-      const SizedBox(height: 20),
-      _savingsPanel(),
-      const SizedBox(height: 33),
-      Row(
+        padding: EdgeInsets.symmetric(horizontal: wide ? 37 : 20, vertical: 32),
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          _header(
+            _tr('Welcome back, Basel'),
+            _tr('Your personal Windows performance control center.'),
+            action: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Text(
-                  _tr('Protected applications'),
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                OutlinedButton.icon(
+                  onPressed:
+                      _trayReady && controller.online ? _runInBackground : null,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
+                  label: Text(_tr('Run in background')),
                 ),
-                SizedBox(height: 5),
-                Text(
-                  _tr(
-                    'Apps are only cleaned after their last visible window closes.',
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF8E3647),
                   ),
-                  style: TextStyle(color: kMuted, fontSize: 12),
+                  onPressed:
+                      !controller.ready || controller.loading || _backgroundBusy
+                          ? null
+                          : _confirmCloseAll,
+                  icon: const Icon(Icons.power_settings_new_rounded, size: 17),
+                  label: Text(_tr('CLOSE ALL')),
+                ),
+                IconButton.outlined(
+                  onPressed: () => controller.refresh(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: _tr('Refresh'),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: !controller.ready || controller.loading ? null : _addApp,
-            icon: const Icon(Icons.add_rounded, size: 19),
-            label: Text(_tr('Add app')),
+          const SizedBox(height: 27),
+          _hero(),
+          const SizedBox(height: 20),
+          _performancePanel(),
+          if (!controller.online && !controller.loading) ...[
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF34231C),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: kWarn.withValues(alpha: .55)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: kWarn),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      controller.error ??
+                          _tr('Background monitor is offline. Cleanup cannot run.'),
+                      style: const TextStyle(fontSize: 12, color: kInk),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => controller.openDataDirectory(),
+                    child: Text(_tr('Diagnostics folder')),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          LayoutBuilder(
+            builder: (ctx, box) {
+              final columns =
+                  box.maxWidth > 850 ? 4 : (box.maxWidth > 460 ? 2 : 1);
+              final spacing = 14.0;
+              final width = (box.maxWidth - (columns - 1) * spacing) / columns;
+              final tiles = [
+                _metric(
+                  Icons.layers_outlined,
+                  _tr('Active processes'),
+                  '${controller.processCount}',
+                  _tr('Across watched applications'),
+                ),
+                _metric(
+                  Icons.memory_outlined,
+                  _tr('Observed memory'),
+                  _formatMemory(controller.observedMb),
+                  _tr('Working sets, not freed RAM'),
+                ),
+                _metric(
+                  Icons.auto_awesome_outlined,
+                  _tr('Auto cleanups'),
+                  '${controller.automaticCleanupSessions}',
+                  _tr('Completed automatic sessions'),
+                ),
+                _metric(
+                  Icons.hourglass_top_rounded,
+                  _tr('Est. time saved'),
+                  controller.estimatedTimeSaved,
+                  '${_tr('Estimated seconds per cleanup')} · ${controller.config.estimatedSecondsPerCleanup}',
+                ),
+              ];
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final tile in tiles) SizedBox(width: width, child: tile),
+                ],
+              );
+            },
           ),
+          const SizedBox(height: 20),
+          _savingsPanel(),
+          const SizedBox(height: 33),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _tr('Protected applications'),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      _tr(
+                        'Apps are only cleaned after their last visible window closes.',
+                      ),
+                      style: TextStyle(color: kMuted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed:
+                    !controller.ready || controller.loading ? null : _addApp,
+                icon: const Icon(Icons.add_rounded, size: 19),
+                label: Text(_tr('Add app')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          for (final rule in controller.config.apps) ...[
+            _appRow(rule, wide),
+            const SizedBox(height: 11),
+          ],
+          const SizedBox(height: 13),
+          _notice(),
         ],
-      ),
-      const SizedBox(height: 18),
-      for (final rule in controller.config.apps) ...[
-        _appRow(rule, wide),
-        const SizedBox(height: 11),
-      ],
-      const SizedBox(height: 13),
-      _notice(),
-    ],
-  );
+      );
 
   Widget _header(String title, String subtitle, {Widget? action}) => Wrap(
-    alignment: WrapAlignment.spaceBetween,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: 16,
-    runSpacing: 14,
-    children: [
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 14,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 29,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 29,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(subtitle,
+                  style: const TextStyle(color: kMuted, fontSize: 13)),
+            ],
           ),
-          const SizedBox(height: 5),
-          Text(subtitle, style: const TextStyle(color: kMuted, fontSize: 13)),
+          if (action != null) action,
         ],
-      ),
-      if (action != null) action,
-    ],
-  );
+      );
 
   Widget _hero() {
     final configured = controller.config.monitorEnabled;
@@ -1847,10 +1963,10 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                     controller.loading
                         ? _tr('CONNECTING TO MONITOR')
                         : !controller.online
-                        ? _tr('MONITOR OFFLINE')
-                        : active
-                        ? _tr('AUTOMATIC CLEANUP ACTIVE')
-                        : _tr('AUTOMATIC CLEANUP PAUSED'),
+                            ? _tr('MONITOR OFFLINE')
+                            : active
+                                ? _tr('AUTOMATIC CLEANUP ACTIVE')
+                                : _tr('AUTOMATIC CLEANUP PAUSED'),
                     style: const TextStyle(
                       color: kAccentBright,
                       letterSpacing: 1.1,
@@ -1865,10 +1981,10 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                 controller.loading
                     ? _tr('Preparing your control center...')
                     : !controller.online
-                    ? _tr('Monitoring is not running.')
-                    : active
-                    ? _tr('Your desktop, in control.')
-                    : _tr('Everything is on hold.'),
+                        ? _tr('Monitoring is not running.')
+                        : active
+                            ? _tr('Your desktop, in control.')
+                            : _tr('Everything is on hold.'),
                 style: const TextStyle(
                   fontSize: 25,
                   fontWeight: FontWeight.w800,
@@ -1906,8 +2022,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
               !controller.online
                   ? _tr('Start monitor')
                   : active
-                  ? _tr('Pause cleanup')
-                  : _tr('Resume cleanup'),
+                      ? _tr('Pause cleanup')
+                      : _tr('Resume cleanup'),
             ),
           );
           if (narrow)
@@ -1934,9 +2050,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       7,
       (i) => midnight.subtract(Duration(days: 6 - i)),
     );
-    final counts = days
-        .map((day) => controller.cleanupByDay[day] ?? 0)
-        .toList();
+    final counts =
+        days.map((day) => controller.cleanupByDay[day] ?? 0).toList();
     final peak = counts.fold<int>(1, (a, b) => a > b ? a : b);
     const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return Container(
@@ -2301,58 +2416,58 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   }
 
   Widget _notice() => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1D242C),
-      border: Border.all(color: const Color(0xFF37414C)),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.info_outline_rounded, color: kWarn, size: 19),
-        SizedBox(width: 11),
-        Expanded(
-          child: Text(
-            _tr(
-              'Automatic mode only cleans an app after its last visible window closes. Close All is a separate immediate force-close command with explicit app selection and confirmation. Unsaved data, downloads and calls can be lost.',
-            ),
-            style: TextStyle(
-              color: Color(0xFFC2C9D1),
-              fontSize: 12,
-              height: 1.55,
-            ),
-          ),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1D242C),
+          border: Border.all(color: const Color(0xFF37414C)),
+          borderRadius: BorderRadius.circular(16),
         ),
-      ],
-    ),
-  );
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline_rounded, color: kWarn, size: 19),
+            SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                _tr(
+                  'Automatic mode only cleans an app after its last visible window closes. Close All is a separate immediate force-close command with explicit app selection and confirmation. Unsaved data, downloads and calls can be lost.',
+                ),
+                style: TextStyle(
+                  color: Color(0xFFC2C9D1),
+                  fontSize: 12,
+                  height: 1.55,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _history() => ListView(
-    padding: const EdgeInsets.all(32),
-    children: [
-      _header(
-        _tr('Activity log'),
-        _tr('A local, inspectable history of all cleanup events.'),
-        action: TextButton.icon(
-          onPressed: () => controller.clearHistory(),
-          icon: const Icon(Icons.delete_outline, size: 18),
-          label: Text(_tr('Clear history')),
-        ),
-      ),
-      const SizedBox(height: 24),
-      if (controller.events.isEmpty)
-        _emptyPanel(
-          Icons.history_toggle_off_rounded,
-          _tr('No events yet'),
-          _tr('Open a monitored app, close its last window, and check here.'),
-        ),
-      for (final event in controller.events) ...[
-        _eventTile(event),
-        const SizedBox(height: 9),
-      ],
-    ],
-  );
+        padding: const EdgeInsets.all(32),
+        children: [
+          _header(
+            _tr('Activity log'),
+            _tr('A local, inspectable history of all cleanup events.'),
+            action: TextButton.icon(
+              onPressed: () => controller.clearHistory(),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: Text(_tr('Clear history')),
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (controller.events.isEmpty)
+            _emptyPanel(
+              Icons.history_toggle_off_rounded,
+              _tr('No events yet'),
+              _tr('Open a monitored app, close its last window, and check here.'),
+            ),
+          for (final event in controller.events) ...[
+            _eventTile(event),
+            const SizedBox(height: 9),
+          ],
+        ],
+      );
 
   String _arabicEvent(CleanerEvent event) {
     final kind = switch (event.kind) {
@@ -2380,16 +2495,15 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   }
 
   Widget _eventTile(CleanerEvent event) {
-    final stopped =
-        event.kind == 'stopped' ||
+    final stopped = event.kind == 'stopped' ||
         event.kind == 'auto-cleanup' ||
         event.kind == 'manual-close-all';
     final failed = event.kind == 'error';
     final tint = stopped
         ? kAccentBright
         : failed
-        ? const Color(0xFFFF9398)
-        : kMuted;
+            ? const Color(0xFFFF9398)
+            : kMuted;
     final time = event.timestamp.toLocal();
     final dateText =
         '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')} '
@@ -2413,8 +2527,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
               stopped
                   ? Icons.check_circle_outline
                   : failed
-                  ? Icons.error_outline
-                  : Icons.info_outline,
+                      ? Icons.error_outline
+                      : Icons.info_outline,
               color: tint,
               size: 19,
             ),
@@ -2477,332 +2591,301 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       );
 
   Widget _settings() => ListView(
-    padding: const EdgeInsets.all(32),
-    children: [
-      _header(_tr('Preferences'), _tr('Set the rules that fit your workflow.')),
-      const SizedBox(height: 20),
-      _settingsCard(
+        padding: const EdgeInsets.all(32),
         children: [
-          _settingsOption(
-            Icons.translate_rounded,
-            _tr('Language'),
-            _tr('Saved on this PC.'),
-            DropdownButton<String>(
-              value: controller.config.language,
-              onChanged: !controller.ready || controller.loading
-                  ? null
-                  : (language) async {
-                      if (language == null) return;
-                      try {
-                        await controller.setLanguage(language);
-                        if (_trayReady) await _refreshTrayMenu();
-                      } catch (e) {
-                        _toast('$e', error: true);
-                      }
-                    },
-              items: const [
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(
-                  value: 'ar',
-                  child: Text(
-                    'العربية',
-                    style: TextStyle(fontFamily: 'Almarai'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.aspect_ratio_rounded,
-            _tr('Window layout'),
-            _tr('Restored on the next launch.'),
-            DropdownButton<WindowLayout>(
-              value: controller.config.windowLayout,
-              onChanged: !controller.ready || controller.loading
-                  ? null
-                  : (layout) async {
-                      if (layout == null) return;
-                      try {
-                        await _resize(layout);
-                        await controller.setWindowLayout(layout);
-                      } catch (e) {
-                        _toast('$e', error: true);
-                      }
-                    },
-              items: WindowLayout.values
-                  .map(
-                    (layout) => DropdownMenuItem(
-                      value: layout,
+          _header(
+              _tr('Preferences'), _tr('Set the rules that fit your workflow.')),
+          const SizedBox(height: 20),
+          _settingsCard(
+            children: [
+              _settingsOption(
+                Icons.translate_rounded,
+                _tr('Language'),
+                _tr('Saved on this PC.'),
+                DropdownButton<String>(
+                  value: controller.config.language,
+                  onChanged: !controller.ready || controller.loading
+                      ? null
+                      : (language) async {
+                          if (language == null) return;
+                          try {
+                            await controller.setLanguage(language);
+                            if (_trayReady) await _refreshTrayMenu();
+                          } catch (e) {
+                            _toast('$e', error: true);
+                          }
+                        },
+                  items: const [
+                    DropdownMenuItem(value: 'en', child: Text('English')),
+                    DropdownMenuItem(
+                      value: 'ar',
                       child: Text(
-                        _tr(switch (layout) {
-                          WindowLayout.compact => 'Compact',
-                          WindowLayout.portrait => 'Portrait',
-                          WindowLayout.standard => 'Standard',
-                          WindowLayout.wide => 'Wide',
-                        }),
+                        'العربية',
+                        style: TextStyle(fontFamily: 'Almarai'),
                       ),
                     ),
-                  )
-                  .toList(),
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      _settingsCard(
-        children: [
-          _settingsOption(
-            Icons.system_update_alt_rounded,
-            _tr('Software updates'),
-            '${_tr('Current version')} v$kClosePilotVersion · ${_tr('Checks on launch only, or when you click.')}',
-            FilledButton.icon(
-              onPressed: _checkingUpdates || _downloadingUpdate
-                  ? null
-                  : () => _checkForUpdates(),
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: Text(_tr('Check for Updates')),
-            ),
+          const SizedBox(height: 24),
+          _settingsCard(
+            children: [
+              _settingsOption(
+                Icons.system_update_alt_rounded,
+                _tr('Software updates'),
+                '${_tr('Current version')} v$kClosePilotVersion · ${_tr('Checks on launch only, or when you click.')}',
+                FilledButton.icon(
+                  onPressed: _checkingUpdates || _downloadingUpdate
+                      ? null
+                      : () => _checkForUpdates(),
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: Text(_tr('Check for Updates')),
+                ),
+              ),
+              if (_checkingUpdates)
+                const LinearProgressIndicator(
+                    color: kAccentBright, minHeight: 2),
+              if (_downloadingUpdate) ...[
+                LinearProgressIndicator(
+                  value: _updateProgress,
+                  color: kAccentBright,
+                  minHeight: 4,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${_tr('Downloading verified update')} ${(_updateProgress * 100).round()}%',
+                  style: const TextStyle(color: kMuted, fontSize: 11),
+                ),
+              ],
+            ],
           ),
-          if (_checkingUpdates)
-            const LinearProgressIndicator(color: kAccentBright, minHeight: 2),
-          if (_downloadingUpdate) ...[
-            LinearProgressIndicator(
-              value: _updateProgress,
-              color: kAccentBright,
-              minHeight: 4,
-            ),
-            const SizedBox(height: 8),
+          const SizedBox(height: 19),
+          _settingsCard(
+            children: [
+              _settingsOption(
+                Icons.power_settings_new_rounded,
+                _tr('Start with Windows'),
+                _tr('Launch the invisible monitor after you sign in.'),
+                Switch(
+                  value: controller.config.autoStart,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: kAccent,
+                  onChanged: (v) async {
+                    try {
+                      await controller.setAutoStart(v);
+                      _toast(
+                        v
+                            ? _tr('Starts automatically with Windows')
+                            : _tr('Automatic startup disabled'),
+                      );
+                    } catch (e) {
+                      _toast('${_tr('Could not update startup')}: $e',
+                          error: true);
+                    }
+                  },
+                ),
+              ),
+              const Divider(color: kBorder),
+              _settingsOption(
+                Icons.layers_clear_outlined,
+                _tr('Minimize to system tray'),
+                _tr(
+                  'Close the window without stopping the control center. Reopen from the tray icon.',
+                ),
+                Switch(
+                  value: controller.config.minimizeToTray,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: kAccent,
+                  onChanged: _trayReady
+                      ? (v) => controller.setMinimizeToTray(v)
+                      : null,
+                ),
+              ),
+              const Divider(color: kBorder),
+              _settingsOption(
+                Icons.hourglass_top_rounded,
+                _tr('Time saving assumption'),
+                _tr(
+                  'Used ONLY for estimated time savings, not actual measured time.',
+                ),
+                Text(
+                  '${(estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble()).round()}s / cleanup',
+                  style: const TextStyle(
+                    color: kAccentBright,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Slider(
+                min: 5,
+                max: 60,
+                divisions: 11,
+                value: estimatePreview ??
+                    controller.config.estimatedSecondsPerCleanup
+                        .toDouble()
+                        .clamp(5, 60)
+                        .toDouble(),
+                activeColor: kAccentBright,
+                label:
+                    '${(estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble()).round()}s',
+                onChanged: (v) => setState(() => estimatePreview = v),
+                onChangeEnd: (v) async {
+                  await controller.setEstimatedSecondsPerCleanup(v.round());
+                  if (mounted) setState(() => estimatePreview = null);
+                },
+              ),
+              const Divider(color: kBorder),
+              _settingsOption(
+                Icons.timer_outlined,
+                _tr('Close delay'),
+                _tr('Wait after the last window closes, allowing quick reopening.'),
+                Text(
+                  '${(gracePreview ?? controller.config.graceSeconds.toDouble()).round()} seconds',
+                  style: const TextStyle(
+                    color: kAccentBright,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Slider(
+                value:
+                    gracePreview ?? controller.config.graceSeconds.toDouble(),
+                min: 5,
+                max: 120,
+                divisions: 23,
+                activeColor: kAccentBright,
+                label:
+                    '${(gracePreview ?? controller.config.graceSeconds.toDouble()).round()}s',
+                onChanged: (v) => setState(() => gracePreview = v),
+                onChangeEnd: (v) async {
+                  await controller.setGraceSeconds(v.round());
+                  if (mounted) setState(() => gracePreview = null);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 19),
+          _settingsCard(
+            children: [
+              _settingsOption(
+                Icons.folder_open_outlined,
+                _tr('Local data'),
+                _tr('Configuration, monitor status and JSON activity history.'),
+                OutlinedButton(
+                  onPressed: () => controller.openDataDirectory(),
+                  child: Text(_tr('Open folder')),
+                ),
+              ),
+              const Divider(color: kBorder),
+              _settingsOption(
+                Icons.restart_alt_rounded,
+                _tr('Restart monitor'),
+                _tr('Reload the background engine without restarting Windows.'),
+                OutlinedButton(
+                  onPressed: () async {
+                    await controller.restartAgent();
+                    _toast(_tr('Monitor restart requested'));
+                  },
+                  child: Text(_tr('Restart')),
+                ),
+              ),
+              const Divider(color: kBorder),
+              _settingsOption(
+                Icons.stop_circle_outlined,
+                _tr('Stop monitor completely'),
+                _tr(
+                  'The UI stays open, but the background agent exits until restarted.',
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    await controller.stopAgent();
+                    _toast(_tr('Monitor stop requested'));
+                  },
+                  child: Text(_tr('Stop agent')),
+                ),
+              ),
+              const Divider(color: kBorder),
+              _settingsOption(
+                Icons.play_circle_outline,
+                _tr('Start monitor'),
+                _tr('Run the background agent if it has been stopped.'),
+                FilledButton(
+                  onPressed: () async {
+                    await controller.startAgent();
+                    _toast(_tr('Monitor start requested'));
+                  },
+                  child: Text(_tr('Start agent')),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _notice(),
+          if (controller.error != null || controller.statusError != null) ...[
+            const SizedBox(height: 16),
             Text(
-              '${_tr('Downloading verified update')} ${(_updateProgress * 100).round()}%',
-              style: const TextStyle(color: kMuted, fontSize: 11),
+              '${_tr('Diagnostic')}: ${controller.statusError ?? controller.error}',
+              style: const TextStyle(color: kWarn),
             ),
           ],
         ],
-      ),
-      const SizedBox(height: 19),
-      _settingsCard(
-        children: [
-          _settingsOption(
-            Icons.power_settings_new_rounded,
-            _tr('Start with Windows'),
-            _tr('Launch the invisible monitor after you sign in.'),
-            Switch(
-              value: controller.config.autoStart,
-              activeThumbColor: Colors.white,
-              activeTrackColor: kAccent,
-              onChanged: (v) async {
-                try {
-                  await controller.setAutoStart(v);
-                  _toast(
-                    v
-                        ? _tr('Starts automatically with Windows')
-                        : _tr('Automatic startup disabled'),
-                  );
-                } catch (e) {
-                  _toast('${_tr('Could not update startup')}: $e', error: true);
-                }
-              },
-            ),
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.layers_clear_outlined,
-            _tr('Minimize to system tray'),
-            _tr(
-              'Close the window without stopping the control center. Reopen from the tray icon.',
-            ),
-            Switch(
-              value: controller.config.minimizeToTray,
-              activeThumbColor: Colors.white,
-              activeTrackColor: kAccent,
-              onChanged: _trayReady
-                  ? (v) => controller.setMinimizeToTray(v)
-                  : null,
-            ),
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.hourglass_top_rounded,
-            _tr('Time saving assumption'),
-            _tr(
-              'Used ONLY for estimated time savings, not actual measured time.',
-            ),
-            Text(
-              '${(estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble()).round()}s / cleanup',
-              style: const TextStyle(
-                color: kAccentBright,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Slider(
-            min: 5,
-            max: 60,
-            divisions: 11,
-            value:
-                estimatePreview ??
-                controller.config.estimatedSecondsPerCleanup
-                    .toDouble()
-                    .clamp(5, 60)
-                    .toDouble(),
-            activeColor: kAccentBright,
-            label:
-                '${(estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble()).round()}s',
-            onChanged: (v) => setState(() => estimatePreview = v),
-            onChangeEnd: (v) async {
-              await controller.setEstimatedSecondsPerCleanup(v.round());
-              if (mounted) setState(() => estimatePreview = null);
-            },
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.timer_outlined,
-            _tr('Close delay'),
-            _tr('Wait after the last window closes, allowing quick reopening.'),
-            Text(
-              '${(gracePreview ?? controller.config.graceSeconds.toDouble()).round()} seconds',
-              style: const TextStyle(
-                color: kAccentBright,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Slider(
-            value: gracePreview ?? controller.config.graceSeconds.toDouble(),
-            min: 5,
-            max: 120,
-            divisions: 23,
-            activeColor: kAccentBright,
-            label:
-                '${(gracePreview ?? controller.config.graceSeconds.toDouble()).round()}s',
-            onChanged: (v) => setState(() => gracePreview = v),
-            onChangeEnd: (v) async {
-              await controller.setGraceSeconds(v.round());
-              if (mounted) setState(() => gracePreview = null);
-            },
-          ),
-        ],
-      ),
-      const SizedBox(height: 19),
-      _settingsCard(
-        children: [
-          _settingsOption(
-            Icons.folder_open_outlined,
-            _tr('Local data'),
-            _tr('Configuration, monitor status and JSON activity history.'),
-            OutlinedButton(
-              onPressed: () => controller.openDataDirectory(),
-              child: Text(_tr('Open folder')),
-            ),
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.restart_alt_rounded,
-            _tr('Restart monitor'),
-            _tr('Reload the background engine without restarting Windows.'),
-            OutlinedButton(
-              onPressed: () async {
-                await controller.restartAgent();
-                _toast(_tr('Monitor restart requested'));
-              },
-              child: Text(_tr('Restart')),
-            ),
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.stop_circle_outlined,
-            _tr('Stop monitor completely'),
-            _tr(
-              'The UI stays open, but the background agent exits until restarted.',
-            ),
-            OutlinedButton(
-              onPressed: () async {
-                await controller.stopAgent();
-                _toast(_tr('Monitor stop requested'));
-              },
-              child: Text(_tr('Stop agent')),
-            ),
-          ),
-          const Divider(color: kBorder),
-          _settingsOption(
-            Icons.play_circle_outline,
-            _tr('Start monitor'),
-            _tr('Run the background agent if it has been stopped.'),
-            FilledButton(
-              onPressed: () async {
-                await controller.startAgent();
-                _toast(_tr('Monitor start requested'));
-              },
-              child: Text(_tr('Start agent')),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 20),
-      _notice(),
-      if (controller.error != null) ...[
-        const SizedBox(height: 16),
-        Text(
-          '${_tr('Diagnostic')}: ${controller.error}',
-          style: const TextStyle(color: kWarn),
-        ),
-      ],
-    ],
-  );
+      );
 
   Widget _settingsCard({required List<Widget> children}) => Container(
-    padding: const EdgeInsets.all(19),
-    decoration: BoxDecoration(
-      color: kSurface,
-      borderRadius: BorderRadius.circular(19),
-      border: Border.all(color: kBorder),
-    ),
-    child: Column(children: children),
-  );
+        padding: const EdgeInsets.all(19),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(color: kBorder),
+        ),
+        child: Column(children: children),
+      );
 
   Widget _settingsOption(
     IconData icon,
     String title,
     String description,
     Widget trailing,
-  ) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: Row(
-      children: [
-        Icon(icon, color: kAccentBright, size: 23),
-        const SizedBox(width: 15),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+  ) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: kAccentBright, size: 23),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: kMuted,
+                      fontSize: 11,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                description,
-                style: const TextStyle(
-                  color: kMuted,
-                  fontSize: 11,
-                  height: 1.45,
-                ),
+            ),
+            const SizedBox(width: 13),
+            Flexible(
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: trailing,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(width: 13),
-        Flexible(
-          child: Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: trailing,
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 }

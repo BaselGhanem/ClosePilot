@@ -1,4 +1,4 @@
-# ClosePilot agent v1.2.0 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.2.1 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -83,7 +83,16 @@ public static class ClosePilotWindows {
                     # PowerShell may coerce a null backup argument into an invalid path.
                     # Use an explicit same-volume backup to preserve atomic replacement.
                     $backup = Join-Path $root 'status.backup'
-                    [System.IO.File]::Replace($temporary, $statusFile, $backup)
+                    for ($attempt = 0; ; $attempt++) {
+                        try {
+                            [System.IO.File]::Replace($temporary, $statusFile, $backup)
+                            break
+                        } catch {
+                            $code = $_.Exception.GetBaseException().HResult -band 0xFFFF
+                            if ($attempt -ge 4 -or $code -notin @(32,33)) { throw }
+                            Start-Sleep -Milliseconds (35 * ($attempt + 1))
+                        }
+                    }
                 } catch {
                     $replaceError = $_.Exception.Message
                     # Avoid leaving status.json stale if atomic replacement is unsupported.
@@ -169,6 +178,17 @@ public static class ClosePilotWindows {
         $enabled = ($config.monitorEnabled -eq $true)
         $appStatuses = @{}
         $visiblePids = [ClosePilotWindows]::VisibleAppProcessIds()
+        $openApps = @{}
+        foreach ($visiblePid in $visiblePids) {
+            try {
+                $process = Get-Process -Id $visiblePid -ErrorAction Stop
+                $name = $process.ProcessName
+                if ($name -in $blockedNames -or $openApps.ContainsKey($name)) { continue }
+                $label = $process.Description
+                if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
+                $openApps[$name] = $label
+            } catch { }
+        }
         foreach ($app in @($config.apps)) {
             if ($null -eq $app) { continue }
             $id = [string]$app.id
@@ -292,11 +312,12 @@ public static class ClosePilotWindows {
         if (($now - $sampleAt).TotalSeconds -gt 20) { $performance = @{} }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.2.0'
+            version = '1.2.1'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled
             apps = $appStatuses
+            openApps = $openApps
             performance = $performance
         }
         Write-Status $status

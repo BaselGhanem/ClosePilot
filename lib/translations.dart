@@ -16,7 +16,8 @@ const arabicText = <String, String>{
   'Refresh': 'تحديث',
   'CLOSE ALL': 'اغلاق الكل',
   'CLOSE ALL · Force termination': 'اغلاق الكل بالقوة',
-  'This closes selected applications EVEN WHEN OPEN. Unsaved work, downloads or calls may be lost.': 'سيتم اغلاق التطبيقات المحددة حتى لو كانت مفتوحة، وقد تفقد العمل غير المحفوظ او تتوقف التحميلات والمكالمات',
+  'This closes selected applications EVEN WHEN OPEN. Unsaved work, downloads or calls may be lost.':
+      'سيتم اغلاق التطبيقات المحددة حتى لو كانت مفتوحة، وقد تفقد العمل غير المحفوظ او تتوقف التحميلات والمكالمات',
   'Select all tracked apps': 'تحديد كل التطبيقات',
   'Deselect all': 'الغاء تحديد الكل',
   'Usually excluded · select explicitly': 'المراقبة التلقائية متوقفة',
@@ -93,7 +94,8 @@ const arabicText = <String, String>{
   'Background · not armed': 'خلفية بانتظار فتح نافذة',
   'Cleanup completed': 'اكتمل التنظيف',
   'Monitoring': 'قيد المراقبة',
-  'Automatic mode only cleans an app after its last visible window closes. Close All is a separate immediate force-close command with explicit app selection and confirmation. Unsaved data, downloads and calls can be lost.': 'التنظيف التلقائي ينتظر اغلاق اخر نافذة، بينما اغلاق الكل ينهي التطبيقات المحددة فورا بعد التاكيد',
+  'Automatic mode only cleans an app after its last visible window closes. Close All is a separate immediate force-close command with explicit app selection and confirmation. Unsaved data, downloads and calls can be lost.':
+      'التنظيف التلقائي ينتظر اغلاق اخر نافذة، بينما اغلاق الكل ينهي التطبيقات المحددة فورا بعد التاكيد',
   'A local, inspectable history of all cleanup events.':
       'سجل محلي لعمليات التنظيف',
   'Clear history': 'مسح السجل',
@@ -148,7 +150,8 @@ const arabicText = <String, String>{
   'Maintenance and improvements.': 'صيانة وتحسينات',
   'Not now': 'لاحقا',
   'Update Now': 'حدث الان',
-  'Download only after approval. ZIP integrity is verified with SHA-256. ClosePilot will close briefly, install the update, and reopen. Settings and activity history are preserved.': 'بعد موافقتك ينزل البرنامج التحديث ويتحقق من سلامته ثم يثبته ويعيد فتح النافذة مع الاحتفاظ بالاعدادات والسجل',
+  'Download only after approval. ZIP integrity is verified with SHA-256. ClosePilot will close briefly, install the update, and reopen. Settings and activity history are preserved.':
+      'بعد موافقتك ينزل البرنامج التحديث ويتحقق من سلامته ثم يثبته ويعيد فتح النافذة مع الاحتفاظ بالاعدادات والسجل',
   'The background monitor is offline. Start it first.':
       'شغل المراقب قبل اخفاء النافذة',
   'System tray is unavailable. The monitor already runs separately.':
@@ -202,4 +205,10 @@ const arabicText = <String, String>{
   'Busiest GPU engine': 'محرك الرسوميات الاعلى استخداما',
   'Could not resize window': 'تعذر تغيير حجم النافذة',
   'Add an application first.': 'اضف تطبيقا اولا',
+  'No eligible apps with open windows. Open an app and wait a moment.':
+      'افتح التطبيق المطلوب وانتظر قليلا حتى يظهر هنا',
+  'Minimize window': 'تصغير النافذة',
+  'Maximize or restore': 'تكبير او استعادة النافذة',
+  'Close window': 'اغلاق النافذة',
+  'Basel Ghanem': 'باسل غانم',
 };

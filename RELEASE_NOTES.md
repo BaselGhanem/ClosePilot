@@ -1,9 +1,8 @@
-# ClosePilot v1.3.0
+# ClosePilot v1.3.1
 
-- Open the system tray menu with a right-click. Close the interface or exit and stop monitoring.
-- Add apps through the dashboard. Close All can force-close selected apps even when their windows are open.
-- View available RAM, CPU speed and unused CPU capacity, disk activity, and network throughput.
-- Switch between English and Arabic. Arabic uses Almarai and a right-to-left layout.
-- Choose Compact, Portrait, Standard, or Wide in Settings. ClosePilot keeps language and layout on this PC.
+- Choose a window size from four icons beside the window controls.
+- Add monitoring rules by selecting apps with open windows.
+- Retry transient Windows file-sharing conflicts while reading and writing the monitor heartbeat.
+- Updated Windows and tray icon artwork and a brief data-themed Basel Ghanem startup screen.
 
-Install through **Settings → Check for Updates → Update Now** in v1.2.1.
+Install through **Settings → Check for Updates → Update Now** in v1.3.0.
