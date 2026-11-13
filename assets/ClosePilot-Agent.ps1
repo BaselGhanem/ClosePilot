@@ -174,11 +174,15 @@ public static class ClosePilotWindows {
                         $mode = 'window-open'
                         $secondsRemaining = $null
                     } else {
+                        $autoStopped = 0
+                        $autoObservedMb = 0.0
                         foreach ($p in $latest) {
                             try {
                                 $targetPid = [int]$p.Id
                                 $observed = [math]::Round(($p.WorkingSet64 / 1MB), 1)
                                 Stop-Process -Id $targetPid -Force -ErrorAction Stop
+                                $autoStopped++
+                                $autoObservedMb += $observed
                                 Write-Event 'stopped' $id ('Stopped {0} (PID {1}) after its last window closed.' -f $app.label, $targetPid) $targetPid $observed
                             } catch {
                                 # A naturally exited process is not an error.
@@ -187,6 +191,11 @@ public static class ClosePilotWindows {
                                     Write-Event 'error' $id ('Could not stop PID {0}: {1}' -f $targetPid, $_.Exception.Message) $targetPid
                                 }
                             }
+                        }
+                        if ($autoStopped -gt 0) {
+                            Write-Event 'auto-cleanup' $id (
+                                'Automatic cleanup for {0}: {1} leftover processes closed.' -f $app.label, $autoStopped
+                            ) 0 $autoObservedMb
                         }
                         $state.armed = $false
                         $state.closedAt = $null
