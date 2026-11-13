@@ -6,6 +6,13 @@ $ErrorActionPreference = 'Stop'
 $root = Join-Path $env:LOCALAPPDATA 'ClosePilot'
 $configFile = Join-Path $root 'config.json'
 $logFile = Join-Path $root 'events.jsonl'
+function Write-ActionEvent($entry) {
+    try {
+        Add-Content -LiteralPath $logFile -Value ($entry | ConvertTo-Json -Compress -Depth 3) -Encoding UTF8
+    } catch {
+        [Console]::Error.WriteLine($_.Exception.Message)
+    }
+}
 if (-not (Test-Path -LiteralPath $configFile)) { throw 'ClosePilot configuration is missing.' }
 $configuration = Get-Content -LiteralPath $configFile -Raw -Encoding UTF8 | ConvertFrom-Json
 try {
@@ -32,18 +39,19 @@ $closedProcesses = 0
 $failedProcesses = 0
 $observedMb = 0.0
 $selectedApps = 0
+$sessionId = (Get-Process -Id $PID).SessionId
 foreach ($app in @($configuration.apps)) {
     if ($null -eq $app) { continue }
     if (-not ($requestedIds -ccontains [string]$app.id)) { continue }
     $selectedApps++
     $names = @($app.names | Where-Object {
         $_ -is [string] -and
-        $_ -match '^[a-zA-Z0-9_-]+$' -and
+        $_ -match '^[^\\/:*?"<>|,\x00-\x1F]+$' -and
         $_.ToLowerInvariant() -notin $blockedNames
     })
     if ($names.Count -eq 0) { continue }
     $processes = @(Get-Process -Name $names -ErrorAction SilentlyContinue |
-        Where-Object { $null -ne $_ -and $_.Id -ne $PID } |
+        Where-Object { $null -ne $_ -and $_.Id -ne $PID -and $_.SessionId -eq $sessionId } |
         Sort-Object -Property Id -Unique)
     $appStopped = 0
     $appMb = 0.0
@@ -63,7 +71,7 @@ foreach ($app in @($configuration.apps)) {
                     message=('Manual close failed for PID {0}: {1}' -f $targetPid,$_.Exception.Message)
                     pid=$targetPid; observedMb=0
                 }
-                Add-Content -LiteralPath $logFile -Value ($entry | ConvertTo-Json -Compress -Depth 3) -Encoding UTF8
+                Write-ActionEvent $entry
             }
         }
     }
@@ -75,7 +83,7 @@ foreach ($app in @($configuration.apps)) {
             message=('Close All: closed {0} processes for {1}.' -f $appStopped,[string]$app.label)
             pid=0; observedMb=[math]::Round($appMb,1)
         }
-        Add-Content -LiteralPath $logFile -Value ($event | ConvertTo-Json -Compress -Depth 3) -Encoding UTF8
+        Write-ActionEvent $event
     }
 }
 $summary = [ordered]@{

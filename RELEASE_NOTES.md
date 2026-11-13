@@ -1,10 +1,9 @@
-# ClosePilot v1.2.1 — Basel Edition
+# ClosePilot v1.3.0
 
-- **GitHub updates from the same public repository**: BaselGhanem/ClosePilot.
-- No second repository, external authentication token, or personal access token is required.
-- **Check for Updates** in Settings, plus one update check whenever the interface opens.
-- Download and install only after clicking **Update Now**.
-- Verifies the ZIP SHA-256 hash, closes the interface, installs the release, and reopens ClosePilot.
-- Preserves your local configuration and activity logs, plus a backup of the prior installation.
-- Runs the background agent independently while the interface is being updated.
-- The next release will be published through GitHub Actions when its version is incremented.
+- Open the system tray menu with a right-click. Close the interface or exit and stop monitoring.
+- Add apps through the dashboard. Close All can force-close selected apps even when their windows are open.
+- View available RAM, CPU speed and unused CPU capacity, disk activity, and network throughput.
+- Switch between English and Arabic. Arabic uses Almarai and a right-to-left layout.
+- Choose Compact, Portrait, Standard, or Wide in Settings. ClosePilot keeps language and layout on this PC.
+
+Install through **Settings → Check for Updates → Update Now** in v1.2.1.

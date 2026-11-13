@@ -2,14 +2,17 @@ import 'package:close_pilot/main.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Safe defaults: interactive apps enabled and downloads/calls disabled', () {
-    final config = MonitorConfig.initial();
-    expect(config.monitorEnabled, isTrue);
-    expect(config.apps.firstWhere((e) => e.id == 'claude').enabled, isTrue);
-    expect(config.apps.firstWhere((e) => e.id == 'chrome').enabled, isTrue);
-    expect(config.apps.firstWhere((e) => e.id == 'steam').enabled, isFalse);
-    expect(config.apps.firstWhere((e) => e.id == 'teams').enabled, isFalse);
-  });
+  test(
+    'Safe defaults: interactive apps enabled and downloads/calls disabled',
+    () {
+      final config = MonitorConfig.initial();
+      expect(config.monitorEnabled, isTrue);
+      expect(config.apps.firstWhere((e) => e.id == 'claude').enabled, isTrue);
+      expect(config.apps.firstWhere((e) => e.id == 'chrome').enabled, isTrue);
+      expect(config.apps.firstWhere((e) => e.id == 'steam').enabled, isFalse);
+      expect(config.apps.firstWhere((e) => e.id == 'teams').enabled, isFalse);
+    },
+  );
 
   test('Configuration serialization preserves selected applications', () {
     final config = MonitorConfig.initial().copyWith(graceSeconds: 45);
@@ -23,6 +26,12 @@ void main() {
     expect(c.validateNewRule('System service', 'svchost'), isNotNull);
     expect(c.validateNewRule('Duplicate', 'chrome.exe'), isNotNull);
     expect(c.validateNewRule('Text editor', 'notepad.exe'), isNull);
+    expect(
+      c.validateNewRule('Custom', 'App With Spaces.exe،Example.App'),
+      isNull,
+    );
+    expect(c.validateNewRule('Invalid', 'app*'), isNotNull);
+    expect(c.validateNewRule('Protected', 'ClosePilot.exe'), isNotNull);
     c.dispose();
   });
   test('Basel Edition settings round-trip for tray and estimated time', () {
@@ -35,9 +44,13 @@ void main() {
     expect(restored.estimatedSecondsPerCleanup, 45);
     final legacy = MonitorConfig.initial().toJson()
       ..remove('minimizeToTray')
-      ..remove('estimatedSecondsPerCleanup');
+      ..remove('estimatedSecondsPerCleanup')
+      ..remove('language')
+      ..remove('windowLayout');
     final upgraded = MonitorConfig.fromJson(legacy);
     expect(upgraded.minimizeToTray, isTrue);
+    expect(upgraded.language, 'en');
+    expect(upgraded.windowLayout, WindowLayout.standard);
     expect(upgraded.estimatedSecondsPerCleanup, 20);
   });
 
@@ -51,5 +64,4 @@ void main() {
     expect(c.estimatedTimeSaved, '2.0 min');
     c.dispose();
   });
-
 }

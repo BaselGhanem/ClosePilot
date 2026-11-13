@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet('enable-startup','disable-startup','migrate-legacy','start-agent','start-updater')]
+    [ValidateSet('enable-startup','disable-startup','migrate-legacy','start-agent','stop-agent','start-updater')]
     [string]$Action
 )
 $ErrorActionPreference = 'Stop'
@@ -53,7 +53,7 @@ if ($Action -eq 'start-agent') {
             $status = Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json
             $updated = [DateTimeOffset]::Parse([string]$status.updatedAt)
             $ageSeconds = ([DateTimeOffset]::Now - $updated).TotalSeconds
-            $healthy = (($status.version -eq '1.1.0') -and
+            $healthy = (($status.version -eq '1.2.0') -and
                         ([int]$status.agentPid -eq [int]$processes[0].ProcessId) -and
                         ($ageSeconds -gt -5) -and ($ageSeconds -lt 12))
         } catch { $healthy = $false }
@@ -74,6 +74,25 @@ if ($Action -eq 'start-agent') {
         $newProcess = Start-Process -FilePath $powershell -ArgumentList $args -WorkingDirectory $root -WindowStyle Hidden -PassThru -ErrorAction Stop
         Write-Output ('Agent launch requested, PID {0}' -f $newProcess.Id)
     }
+}
+
+if ($Action -eq 'stop-agent') {
+    $processes = @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction Stop |
+        Where-Object {
+            $_.CommandLine -and
+            $_.CommandLine.IndexOf($agent, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+        })
+    if ($processes.Count -gt 0) {
+        Set-Content -LiteralPath (Join-Path $root 'stop.request') -Value 'stop'
+        foreach ($process in $processes) {
+            $running = Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue
+            if ($null -ne $running -and -not $running.WaitForExit(4000)) {
+                $running.Kill()
+                if (-not $running.WaitForExit(4000)) { throw 'Monitor did not exit.' }
+            }
+        }
+    }
+    Remove-Item -LiteralPath (Join-Path $root 'status.json'),(Join-Path $root 'stop.request') -Force -ErrorAction SilentlyContinue
 }
 
 if ($Action -eq 'migrate-legacy') {

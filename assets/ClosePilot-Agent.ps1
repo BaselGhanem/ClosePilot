@@ -1,4 +1,4 @@
-# ClosePilot agent v1.1.0 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.2.0 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -15,8 +15,17 @@ $statusFile = Join-Path $root 'status.json'
 $logFile = Join-Path $root 'events.jsonl'
 $stopFile = Join-Path $root 'stop.request'
 New-Item -ItemType Directory -Path $root -Force | Out-Null
+$blockedNames = @(
+    'system','idle','svchost','wininit','winlogon','csrss','services','lsass',
+    'smss','explorer','dwm','sihost','taskhostw','fontdrvhost','registry',
+    'spoolsv','conhost','powershell','pwsh','cmd','msmpeng',
+    'securityhealthservice','searchhost','shellexperiencehost',
+    'startmenuexperiencehost','runtimebroker','audiodg','systemsettings',
+    'applicationframehost','taskmgr','closepilot'
+)
 $mutex = $null
 $owned = $false
+$metricsWorker = $null
 try {
     $mutex = [System.Threading.Mutex]::new($true, 'Local\ClosePilot_Agent_v1', [ref]$owned)
     if (-not $owned) { exit 0 }
@@ -96,6 +105,47 @@ public static class ClosePilotWindows {
             } catch { }
         }
     }
+    # Query Windows counters off the heartbeat loop so WMI stalls cannot pause cleanup.
+    $metricsScript = {
+        $sample = @{}
+        try {
+            $os = Get-CimInstance Win32_OperatingSystem -Property TotalVisibleMemorySize,FreePhysicalMemory -ErrorAction Stop
+            $sample.ramTotalMb = [math]::Round($os.TotalVisibleMemorySize / 1024)
+            $sample.ramAvailableMb = [math]::Round($os.FreePhysicalMemory / 1024)
+        } catch { }
+        try {
+            $cpu = Get-CimInstance Win32_PerfFormattedData_Counters_ProcessorInformation -Filter "Name='_Total'" -ErrorAction Stop
+            if ($null -ne $cpu.PercentProcessorTime) {
+                $sample.cpuPercent = [math]::Min(100, [double]$cpu.PercentProcessorTime)
+            }
+            if ($cpu.ProcessorFrequency -gt 0) {
+                $sample.cpuMHz = [double]$cpu.ProcessorFrequency
+            }
+        } catch { }
+        try {
+            $disks = Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter "Name<>'_Total'" -ErrorAction Stop
+            $busiest = ($disks | Measure-Object -Property PercentDiskTime -Maximum).Maximum
+            if ($null -ne $busiest) { $sample.diskActivePercent = [math]::Min(100, $busiest) }
+        } catch { }
+        try {
+            $interfaces = Get-CimInstance Win32_PerfFormattedData_Tcpip_NetworkInterface -ErrorAction Stop
+            $busiest = ($interfaces | Measure-Object -Property BytesTotalPersec -Maximum).Maximum
+            if ($null -ne $busiest) { $sample.networkBytesPerSecond = $busiest }
+        } catch { }
+        try {
+            $engines = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction Stop
+            $loads = $engines | Group-Object -Property { $_.Name -replace '^pid_\d+_', '' } |
+                ForEach-Object { ($_.Group | Measure-Object -Property UtilizationPercentage -Sum).Sum }
+            $busiest = ($loads | Measure-Object -Maximum).Maximum
+            if ($null -ne $busiest) { $sample.gpuPercent = [math]::Min(100, $busiest) }
+        } catch { }
+        $sample
+    }
+    try { $metricsWorker = [PowerShell]::Create() } catch { }
+    $metricsInvocation = $null
+    $performance = @{}
+    $sampleAt = [DateTime]::MinValue
+    $nextSample = [DateTime]::MinValue
     $config = $null
     $tracked = @{}
     $startedAt = (Get-Date).ToString('o')
@@ -123,7 +173,7 @@ public static class ClosePilotWindows {
             if ($null -eq $app) { continue }
             $id = [string]$app.id
             if ([string]::IsNullOrWhiteSpace($id)) { continue }
-            $names = @($app.names | Where-Object { $_ -match '^[a-zA-Z0-9_-]+$' })
+            $names = @($app.names | Where-Object { $_ -is [string] -and $_.ToLowerInvariant() -notin $blockedNames -and $_ -match '^[^\\/:*?"<>|,\x00-\x1F]+$' })
             if ($names.Count -eq 0) { continue }
             $running = @(Get-Process -Name $names -ErrorAction SilentlyContinue)
             $running = @($running | Where-Object { $null -ne $_ -and $_.Id -ne $PID })
@@ -212,13 +262,37 @@ public static class ClosePilotWindows {
                 remainingSeconds = $secondsRemaining
             }
         }
+        $now = [DateTime]::UtcNow
+        if ($null -ne $metricsInvocation -and $metricsInvocation.IsCompleted) {
+            try {
+                $samples = $metricsWorker.EndInvoke($metricsInvocation)
+                if ($samples.Count -gt 0) {
+                    $performance = $samples[0].BaseObject
+                    $sampleAt = $now
+                }
+            } catch { }
+            $metricsInvocation = $null
+            $metricsWorker.Commands.Clear()
+            $nextSample = $now.AddSeconds(4)
+        }
+        if ($null -ne $metricsWorker -and $null -eq $metricsInvocation -and $now -ge $nextSample) {
+            try {
+                [void]$metricsWorker.AddScript($metricsScript.ToString())
+                $metricsInvocation = $metricsWorker.BeginInvoke()
+            } catch {
+                $metricsWorker.Commands.Clear()
+                $nextSample = $now.AddSeconds(10)
+            }
+        }
+        if (($now - $sampleAt).TotalSeconds -gt 20) { $performance = @{} }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.1.0'
+            version = '1.2.0'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled
             apps = $appStatuses
+            performance = $performance
         }
         Write-Status $status
         Start-Sleep -Seconds $poll
@@ -229,5 +303,8 @@ public static class ClosePilotWindows {
         Add-Content -LiteralPath (Join-Path $root 'agent-fatal.log') -Value $msg -Encoding UTF8
     } catch { }
 } finally {
+    if ($null -ne $metricsWorker) {
+        try { $metricsWorker.BeginStop($null, $null) | Out-Null } catch { }
+    }
     if ($owned -and $null -ne $mutex) { $mutex.ReleaseMutex(); $mutex.Dispose() }
 }
