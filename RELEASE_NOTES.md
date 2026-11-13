@@ -1,8 +1,6 @@
-# ClosePilot v1.3.1
+# ClosePilot v1.3.2
 
-- Choose a window size from four icons beside the window controls.
-- Add monitoring rules by selecting apps with open windows.
-- Retry transient Windows file-sharing conflicts while reading and writing the monitor heartbeat.
-- Updated Windows and tray icon artwork and a brief data-themed Basel Ghanem startup screen.
+- Close from the tray without leaving the window visible while the monitor stops. The monitor checks for shutdown during its polling interval.
+- A 4.5-second Basel Ghanem startup animation with neon-green numeric streams and SQL terminal graphics.
 
-Install through **Settings → Check for Updates → Update Now** in v1.3.0.
+Install through Settings → Check for Updates → Update Now.

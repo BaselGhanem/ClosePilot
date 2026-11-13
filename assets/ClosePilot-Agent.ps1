@@ -1,4 +1,4 @@
-# ClosePilot agent v1.2.1 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.2.2 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -312,7 +312,7 @@ public static class ClosePilotWindows {
         if (($now - $sampleAt).TotalSeconds -gt 20) { $performance = @{} }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.2.1'
+            version = '1.2.2'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled
@@ -321,7 +321,10 @@ public static class ClosePilotWindows {
             performance = $performance
         }
         Write-Status $status
-        Start-Sleep -Seconds $poll
+        $wakeAt = [DateTime]::UtcNow.AddSeconds($poll)
+        while ([DateTime]::UtcNow -lt $wakeAt -and -not [IO.File]::Exists($stopFile)) {
+            Start-Sleep -Milliseconds 100
+        }
     }
 } catch {
     try {

@@ -8,6 +8,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'update_service.dart';
+import 'boot_screen.dart';
 import 'translations.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -474,7 +475,11 @@ class ClosePilotController extends ChangeNotifier {
 
   Future<void> stopAgent() async {
     await _setup('stop-agent');
-    await refresh();
+    online = false;
+    updatedAt = null;
+    performance = {};
+    openApps = [];
+    notifyListeners();
   }
 
   Future<void> restartAgent() async {
@@ -817,6 +822,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   String _tr(String english) =>
       _arabic ? (arabicText[english] ?? english) : english;
   bool _showBoot = true;
+  bool _exiting = false;
+  final _bootFinished = Completer<void>();
   bool _resizing = false;
   bool _trayReady = false;
   bool _backgroundBusy = false;
@@ -833,7 +840,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 850), () {
+    Future<void>.delayed(bootDuration, () {
+      _bootFinished.complete();
       if (mounted) setState(() => _showBoot = false);
     });
     unawaited(_initializeAndCheckUpdates());
@@ -862,8 +870,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
         _toast('${_tr('System tray unavailable')}: $e', error: true);
       }
     }
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-    if (mounted) await _checkForUpdates(silentIfCurrent: true);
+    await _bootFinished.future;
+    if (mounted && !_exiting) await _checkForUpdates(silentIfCurrent: true);
   }
 
   Future<void> _checkForUpdates({bool silentIfCurrent = false}) async {
@@ -1060,20 +1068,6 @@ class _ClosePilotAppState extends State<ClosePilotApp>
     await windowManager.center();
   }
 
-  Future<void> _exitAll() async {
-    if (!controller.ready || controller.loading || _backgroundBusy) return;
-    setState(() => _backgroundBusy = true);
-    try {
-      await controller.stopAgent();
-      await _exitInterface();
-    } catch (e) {
-      await _showFromTray();
-      _toast('${_tr('Could not stop monitor')}: $e', error: true);
-    } finally {
-      if (mounted) setState(() => _backgroundBusy = false);
-    }
-  }
-
   Future<void> _showFromTray() async {
     if (!closePilotWindowHooksReady) return;
     await windowManager.show();
@@ -1107,17 +1101,28 @@ class _ClosePilotAppState extends State<ClosePilotApp>
     }
   }
 
-  Future<void> _exitInterface() async {
-    if (!closePilotWindowHooksReady) return;
-    await windowManager.setPreventClose(false);
+  Future<void> _exitInterface({bool stopMonitor = false}) async {
+    if (!closePilotWindowHooksReady || _exiting || _downloadingUpdate) return;
+    if (stopMonitor && (!controller.ready || controller.loading)) return;
+    _exiting = true;
     try {
-      await trayManager.destroy();
-    } catch (_) {}
-    await windowManager.destroy();
+      await windowManager.hide();
+      if (stopMonitor) await controller.stopAgent();
+      await windowManager.setPreventClose(false);
+      try {
+        await trayManager.destroy();
+      } catch (_) {}
+      await windowManager.destroy();
+    } catch (e) {
+      _exiting = false;
+      await _showFromTray();
+      _toast('${_tr('Could not stop monitor')}: $e', error: true);
+    }
   }
 
   @override
   void onWindowClose() {
+    if (_exiting || _downloadingUpdate) return;
     if (_trayReady && controller.config.minimizeToTray) {
       unawaited(windowManager.hide());
     } else {
@@ -1139,7 +1144,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   void onTrayMenuItemClick(MenuItem item) {
     if (item.key == 'open') unawaited(_showFromTray());
     if (item.key == 'background') unawaited(_runInBackground());
-    if (item.key == 'exit_all') unawaited(_exitAll());
+    if (item.key == 'exit_all') unawaited(_exitInterface(stopMonitor: true));
     if (item.key == 'exit_ui') unawaited(_exitInterface());
   }
 
@@ -1415,27 +1420,27 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                 children: [
                   if (closePilotWindowHooksReady) _titleBar(),
                   Expanded(
-                    child: Row(
-                      children: [
-                        if (wide) _sidebar(),
-                        Expanded(
-                          child: Column(
+                    child: _showBoot
+                        ? BootScreen(name: _tr('Basel Ghanem'))
+                        : Row(
                             children: [
-                              if (!wide) _compactNavigation(),
+                              if (wide) _sidebar(),
                               Expanded(
-                                child: _showBoot
-                                    ? _bootPanel()
-                                    : switch (selectedPage) {
+                                child: Column(
+                                  children: [
+                                    if (!wide) _compactNavigation(),
+                                    Expanded(
+                                      child: switch (selectedPage) {
                                         0 => _dashboard(wide),
                                         1 => _history(),
                                         _ => _settings(),
                                       },
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               );
@@ -1513,44 +1518,6 @@ class _ClosePilotAppState extends State<ClosePilotApp>
           foregroundColor: selected ? kAccentBright : kMuted,
           backgroundColor: selected ? kAccent.withValues(alpha: .16) : null,
         ),
-      );
-
-  Widget _bootPanel() => Center(
-        child: SizedBox(
-            width: 280,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.terminal_rounded,
-                    size: 34, color: kAccentBright),
-                const SizedBox(height: 14),
-                Text(_tr('Basel Ghanem'),
-                    style: const TextStyle(
-                        fontSize: 25, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 10),
-                const Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: Text('> SELECT metrics FROM windows;',
-                      style: TextStyle(
-                        fontFamily: 'Consolas',
-                        color: kAccentBright,
-                        fontSize: 13,
-                      )),
-                ),
-                const SizedBox(height: 14),
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: 1),
-                  duration: const Duration(milliseconds: 800),
-                  builder: (context, progress, _) => LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 2,
-                    color: kAccentBright,
-                    backgroundColor: kSurfaceRaised,
-                  ),
-                ),
-              ],
-            )),
       );
 
   Widget _sidebar() => Container(
