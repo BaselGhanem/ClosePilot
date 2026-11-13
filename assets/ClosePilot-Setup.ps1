@@ -38,7 +38,7 @@ if ($Action -eq 'start-agent') {
             $status = Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json
             $updated = [DateTimeOffset]::Parse([string]$status.updatedAt)
             $ageSeconds = ([DateTimeOffset]::Now - $updated).TotalSeconds
-            $healthy = (($status.version -eq '1.0.1') -and
+            $healthy = (($status.version -eq '1.1.0') -and
                         ([int]$status.agentPid -eq [int]$processes[0].ProcessId) -and
                         ($ageSeconds -gt -5) -and ($ageSeconds -lt 12))
         } catch { $healthy = $false }
