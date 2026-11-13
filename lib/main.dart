@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_notifier/local_notifier.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -828,6 +829,10 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   bool _trayReady = false;
   bool _backgroundBusy = false;
   bool _checkingUpdates = false;
+  bool _showingUpdate = false;
+  Timer? _updateTimer;
+  LocalNotification? _updateNotification;
+  String? _notifiedVersion;
   bool _downloadingUpdate = false;
   double _updateProgress = 0;
   final UpdateService _updateService = const UpdateService();
@@ -845,6 +850,11 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       if (mounted) setState(() => _showBoot = false);
     });
     unawaited(_initializeAndCheckUpdates());
+    if (Platform.isWindows) {
+      _updateTimer = Timer.periodic(const Duration(hours: 2), (_) {
+        unawaited(_checkForUpdates(silentIfCurrent: true));
+      });
+    }
     if (Platform.isWindows && closePilotWindowHooksReady) {
       windowManager.addListener(this);
       trayManager.addListener(this);
@@ -875,7 +885,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
   }
 
   Future<void> _checkForUpdates({bool silentIfCurrent = false}) async {
-    if (_checkingUpdates || _downloadingUpdate || !mounted) return;
+    if (_checkingUpdates || _showingUpdate || _downloadingUpdate || _exiting || !mounted) return;
     setState(() => _checkingUpdates = true);
     try {
       final release = await _updateService.checkForUpdate();
@@ -886,6 +896,46 @@ class _ClosePilotAppState extends State<ClosePilotApp>
         }
         return;
       }
+      if (silentIfCurrent) {
+        await _notifyUpdate(release);
+      } else {
+        await _offerUpdate(release);
+      }
+    } catch (e) {
+      if (!silentIfCurrent && mounted) {
+        _toast('${_tr('Update check failed')}: $e', error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _checkingUpdates = false);
+    }
+  }
+
+  Future<void> _notifyUpdate(ClosePilotRelease release) async {
+    if (!Platform.isWindows || _notifiedVersion == release.version || _exiting) return;
+    try {
+      await localNotifier.setup(appName: 'ClosePilot');
+      if (!mounted || _exiting) return;
+      final notification = LocalNotification(
+        title: 'ClosePilot · ${_tr('Update available')} v${release.version}',
+        body: _tr('Click to review the update.'),
+      );
+      _updateNotification = notification;
+      notification.onClick = () async {
+        if (!mounted || _exiting) return;
+        await _showFromTray();
+        if (mounted && !_exiting) await _offerUpdate(release);
+      };
+      await notification.show();
+      _notifiedVersion = release.version;
+    } catch (e) {
+      _toast('ClosePilot · ${_tr('Update available')} v${release.version}');
+    }
+  }
+
+  Future<void> _offerUpdate(ClosePilotRelease release) async {
+    if (_showingUpdate || _downloadingUpdate || _exiting || !mounted) return;
+    _showingUpdate = true;
+    try {
       final approved = await showDialog<bool>(
         context: _navigator.currentContext!,
         builder: (ctx) => AlertDialog(
@@ -973,12 +1023,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       if (approved == true && mounted) {
         await _installRelease(release);
       }
-    } catch (e) {
-      if (!silentIfCurrent && mounted) {
-        _toast('${_tr('Update check failed')}: $e', error: true);
-      }
     } finally {
-      if (mounted) setState(() => _checkingUpdates = false);
+      _showingUpdate = false;
     }
   }
 
@@ -1154,6 +1200,9 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       windowManager.removeListener(this);
       trayManager.removeListener(this);
     }
+    _updateTimer?.cancel();
+    final notification = _updateNotification;
+    if (notification != null) unawaited(notification.destroy().catchError((Object _) {}));
     controller.dispose();
     super.dispose();
   }
@@ -1857,10 +1906,30 @@ class _ClosePilotAppState extends State<ClosePilotApp>
             ],
           ),
           const SizedBox(height: 18),
-          for (final rule in controller.config.apps) ...[
+          for (final rule in controller.config.apps.where((rule) => controller.statusFor(rule.id).hasWindow)) ...[
             _appRow(rule, wide),
             const SizedBox(height: 11),
           ],
+          if (controller.config.apps.any((rule) => !controller.statusFor(rule.id).hasWindow))
+            ExpansionTile(
+              key: const PageStorageKey('closed-apps'),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: kSurface,
+              collapsedBackgroundColor: kSurface,
+              leading: const Icon(Icons.layers_outlined, color: kAccentBright),
+              title: Text(_tr('Apps without open windows')),
+              subtitle: Text('${controller.config.apps.where((rule) => !controller.statusFor(rule.id).hasWindow).length}'),
+              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              children: [
+                for (final rule in controller.config.apps.where((rule) => !controller.statusFor(rule.id).hasWindow))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: _appRow(rule, wide),
+                  ),
+              ],
+            ),
           const SizedBox(height: 13),
           _notice(),
         ],
@@ -2602,7 +2671,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
               _settingsOption(
                 Icons.system_update_alt_rounded,
                 _tr('Software updates'),
-                '${_tr('Current version')} v$kClosePilotVersion · ${_tr('Checks on launch only, or when you click.')}',
+                '${_tr('Current version')} v$kClosePilotVersion · ${_tr('Checks on launch and every two hours while running.')}',
                 FilledButton.icon(
                   onPressed: _checkingUpdates || _downloadingUpdate
                       ? null

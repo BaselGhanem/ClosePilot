@@ -1,6 +1,5 @@
-# ClosePilot v1.3.2
+# ClosePilot v1.3.3
 
-- Close from the tray without leaving the window visible while the monitor stops. The monitor checks for shutdown during its polling interval.
-- A 4.5-second Basel Ghanem startup animation with neon-green numeric streams and SQL terminal graphics.
-
-Install through Settings → Check for Updates → Update Now.
+- Windows notifications when a new version is detected while ClosePilot is open or in the tray. Review and approve the update before installation.
+- Apps with open windows appear first. Other apps are available in a collapsible list.
+- Launching ClosePilot again restores the existing window and keeps one tray icon.

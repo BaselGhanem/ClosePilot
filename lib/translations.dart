@@ -166,8 +166,7 @@ const arabicText = <String, String>{
   'Update available': 'تحديث متاح',
   'Installed': 'المثبت',
   'Current version': 'الاصدار الحالي',
-  'Checks on launch only, or when you click.':
-      'الفحص عند التشغيل او عند الضغط على الزر',
+  'Checks on launch and every two hours while running.': 'يفحص عند التشغيل وكل ساعتين اثناء عمل البرنامج',
   'Downloading verified update': 'تنزيل التحديث',
   'Force close apps': 'اغلاق التطبيقات بالقوة',
   'Watched': 'مراقب',
@@ -211,4 +210,6 @@ const arabicText = <String, String>{
   'Maximize or restore': 'تكبير او استعادة النافذة',
   'Close window': 'اغلاق النافذة',
   'Basel Ghanem': 'باسل غانم',
+  'Click to review the update.': 'اضغط لمراجعة التحديث',
+  'Apps without open windows': 'التطبيقات بدون نافذة مفتوحة',
 };

@@ -23,6 +23,36 @@ Set-Content -LiteralPath $cmakePath -Value $cmake -Encoding UTF8
 $runnerPath = Join-Path $PSScriptRoot 'windows\runner\main.cpp'
 if (Test-Path -LiteralPath $runnerPath) {
     $runner = Get-Content -LiteralPath $runnerPath -Raw
+    $marker = '  // Join the existing ClosePilot session.'
+    if (-not $runner.Contains($marker)) {
+        $entry = 'int APIENTRY wWinMain\([^)]*\)\s*\{'
+        $match = [regex]::Match($runner, $entry)
+        if (-not $match.Success) { throw 'Windows runner entry point not found.' }
+        $guard = @'
+  // Join the existing ClosePilot session.
+  HANDLE instance = ::CreateMutexW(nullptr, FALSE, L"Local\\ClosePilot_Desktop_Instance");
+  if (instance == nullptr) {
+    return EXIT_FAILURE;
+  }
+  if (::GetLastError() == ERROR_ALREADY_EXISTS) {
+    for (int attempt = 0; attempt < 40; ++attempt) {
+      HWND existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"ClosePilot | Basel Edition");
+      if (existing == nullptr) {
+        existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"ClosePilot");
+      }
+      if (existing != nullptr) {
+        ::ShowWindowAsync(existing, ::IsIconic(existing) ? SW_RESTORE : SW_SHOW);
+        ::SetForegroundWindow(existing);
+        break;
+      }
+      ::Sleep(50);
+    }
+    ::CloseHandle(instance);
+    return EXIT_SUCCESS;
+  }
+'@
+        $runner = $runner.Insert($match.Index + $match.Length, [Environment]::NewLine + $guard + [Environment]::NewLine)
+    }
     $runner = $runner -replace 'L"close_pilot"', 'L"ClosePilot"'
     Set-Content -LiteralPath $runnerPath -Value $runner -Encoding UTF8
 }
