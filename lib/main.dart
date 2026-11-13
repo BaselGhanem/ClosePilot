@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:window_manager/window_manager.dart';
 
 const Color kBackground = Color(0xFF090F15);
 const Color kSurface = Color(0xFF101B24);
@@ -15,8 +17,20 @@ const Color kMuted = Color(0xFF96A7B5);
 const Color kBorder = Color(0xFF273844);
 const Color kWarn = Color(0xFFF2B96B);
 
-void main() {
+bool closePilotWindowHooksReady = false;
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isWindows) {
+    try {
+      await windowManager.ensureInitialized();
+      await windowManager.setTitle('ClosePilot | Basel Edition');
+      await windowManager.setPreventClose(true);
+      closePilotWindowHooksReady = true;
+    } catch (_) {
+      closePilotWindowHooksReady = false;
+    }
+  }
   runApp(const ClosePilotApp());
 }
 
@@ -605,7 +619,11 @@ class ClosePilotApp extends StatefulWidget {
   State<ClosePilotApp> createState() => _ClosePilotAppState();
 }
 
-class _ClosePilotAppState extends State<ClosePilotApp> {
+class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, TrayListener {
+  bool _trayReady = false;
+  bool _backgroundBusy = false;
+  double? estimatePreview;
+
   final controller = ClosePilotController();
   int selectedPage = 0;
   double? gracePreview;
@@ -614,10 +632,99 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
   void initState() {
     super.initState();
     controller.initialize();
+    if (Platform.isWindows && closePilotWindowHooksReady) {
+      windowManager.addListener(this);
+      trayManager.addListener(this);
+      unawaited(_setupSystemTray());
+    }
+  }
+
+  Future<void> _setupSystemTray() async {
+    try {
+      final base = Platform.environment['LOCALAPPDATA'];
+      if (base == null || base.isEmpty) return;
+      final folder = Directory('$base\\ClosePilot');
+      await folder.create(recursive: true);
+      final bytes = await rootBundle.load('assets/closepilot.ico');
+      final iconPath = File('${folder.path}\\closepilot-tray.ico');
+      await iconPath.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+      await trayManager.setIcon(iconPath.path);
+      await trayManager.setToolTip('ClosePilot • Basel Edition');
+      await trayManager.setContextMenu(Menu(items: [
+        MenuItem(key: 'open', label: 'Open ClosePilot'),
+        MenuItem(key: 'background', label: 'Run in background'),
+        MenuItem.separator(),
+        MenuItem(key: 'exit_ui', label: 'Exit interface (monitor keeps running)'),
+      ]));
+      if (!mounted) return;
+      setState(() => _trayReady = true);
+    } catch (e) {
+      if (closePilotWindowHooksReady) {
+        try { await windowManager.setPreventClose(false); } catch (_) {}
+      }
+      if (mounted) _toast('System tray unavailable: $e', error: true);
+    }
+  }
+
+  Future<void> _showFromTray() async {
+    if (!closePilotWindowHooksReady) return;
+    await windowManager.show();
+    await windowManager.restore();
+    await windowManager.focus();
+  }
+
+  Future<void> _runInBackground() async {
+    if (_backgroundBusy) return;
+    if (!_trayReady || !closePilotWindowHooksReady) {
+      _toast('System tray is unavailable. The monitor already runs separately.', error: true);
+      return;
+    }
+    if (!controller.online) {
+      _toast('The background monitor is offline. Start it first.', error: true);
+      return;
+    }
+    setState(() => _backgroundBusy = true);
+    try {
+      await windowManager.hide();
+    } catch (e) {
+      _toast('Could not hide ClosePilot: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _backgroundBusy = false);
+    }
+  }
+
+  Future<void> _exitInterface() async {
+    if (!closePilotWindowHooksReady) return;
+    await windowManager.setPreventClose(false);
+    try { await trayManager.destroy(); } catch (_) {}
+    await windowManager.destroy();
+  }
+
+  @override
+  void onWindowClose() {
+    if (_trayReady && controller.config.minimizeToTray) {
+      unawaited(windowManager.hide());
+    } else {
+      unawaited(_exitInterface());
+    }
+  }
+
+  @override
+  void onTrayIconMouseDown() { unawaited(_showFromTray()); }
+
+  @override
+  void onTrayMenuItemClick(MenuItem item) {
+    if (item.key == 'open') unawaited(_showFromTray());
+    if (item.key == 'background') unawaited(_runInBackground());
+    if (item.key == 'exit_ui') unawaited(_exitInterface());
   }
 
   @override
   void dispose() {
+    if (Platform.isWindows && closePilotWindowHooksReady) {
+      windowManager.removeListener(this);
+      trayManager.removeListener(this);
+    }
     controller.dispose();
     super.dispose();
   }
@@ -757,11 +864,10 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
           animation: controller,
           builder: (context, _) => LayoutBuilder(builder: (context, constraints) {
             final wide = constraints.maxWidth >= 930;
-            if (controller.loading) {
-              return const Center(
-                  child: CircularProgressIndicator(color: kAccent));
-            }
-            return Row(children: [
+            return Column(children: [
+              if (controller.loading)
+                const LinearProgressIndicator(minHeight: 2, color: kAccentBright, backgroundColor: kSurface),
+              Expanded(child: Row(children: [
               if (wide) _sidebar(),
               Expanded(
                 child: Column(children: [
@@ -775,6 +881,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
                   ),
                 ]),
               ),
+            ])),
             ]);
           }),
         ),
@@ -801,7 +908,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
                   ),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Icon(Icons.shield_outlined, color: Colors.white, size: 25),
+                child: const Text('BG', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1)),
               ),
               const SizedBox(width: 12),
               const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -820,7 +927,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
           const SizedBox(height: 18),
           const Padding(
             padding: EdgeInsets.only(left: 12),
-            child: Text('CLOSEPILOT   •   V1.0',
+            child: Text('BY BASEL  •  V1.1',
                 style: TextStyle(color: kMuted, fontSize: 10, letterSpacing: 1.1)),
           ),
         ]),
@@ -831,9 +938,9 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
         padding: const EdgeInsets.symmetric(horizontal: 15),
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
         child: Row(children: [
-          const Icon(Icons.shield_outlined, color: kAccentBright),
+          const Icon(Icons.blur_on_rounded, color: kAccentBright),
           const SizedBox(width: 7),
-          const Text('ClosePilot', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const Text('ClosePilot / Basel', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
           const Spacer(),
           ...[
             Icons.dashboard_outlined,
@@ -884,11 +991,13 @@ class _ClosePilotAppState extends State<ClosePilotApp> {
           Row(children: [
             Icon(Icons.circle, size: 9, color: controller.online ? kAccentBright : kWarn),
             const SizedBox(width: 9),
-            Text(controller.online ? 'Agent is running' : 'Agent is offline',
+            Text(controller.loading ? 'Connecting to monitor...' : controller.online ? 'Agent is running' : 'Agent is offline',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 8),
-          Text(controller.online
+          Text(controller.loading
+              ? 'Getting your background engine ready.'
+              : controller.online
               ? 'Monitoring runs independently of this window.'
               : 'Cleanup is NOT running. Open Settings to view diagnostics.',
               style: const TextStyle(fontSize: 11, color: kMuted, height: 1.5)),
