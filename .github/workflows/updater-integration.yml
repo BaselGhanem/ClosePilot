@@ -1,0 +1,69 @@
+name: Verify Windows updater relaunch and data preservation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/ClosePilot-Updater.ps1'
+      - '.github/workflows/updater-integration.yml'
+
+jobs:
+  updater-integration:
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test offline update swap and executable relaunch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:LOCALAPPDATA 'ClosePilot'
+          $updates = Join-Path $root 'updates'
+          New-Item -ItemType Directory -Path $updates -Force | Out-Null
+          $install = Join-Path $env:RUNNER_TEMP 'ClosePilot-Install-Test'
+          New-Item -ItemType Directory -Path $install -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $install 'ClosePilot.exe') -Value 'OLD-EXECUTABLE' -Encoding ASCII
+
+          # A minimal valid executable that records when the updater restarts it.
+          $out = Join-Path $env:TEMP 'closepilot-updater-relaunch-ok.txt'
+          if (Test-Path $out) { Remove-Item $out -Force }
+          $source = @'
+          using System;
+          using System.IO;
+          class UpdateSmoke {
+            static void Main() {
+              File.WriteAllText(Path.Combine(Path.GetTempPath(),"closepilot-updater-relaunch-ok.txt"),"NEW-VERSION-STARTED");
+            }
+          }
+          '@
+          $fixture = Join-Path $env:RUNNER_TEMP 'ClosePilot-New-Fixture'
+          New-Item -ItemType Directory -Path (Join-Path $fixture 'data\flutter_assets') -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $fixture 'flutter_windows.dll') -Value 'TEST' -Encoding ASCII
+          Set-Content -LiteralPath (Join-Path $fixture 'data\icudtl.dat') -Value 'TEST' -Encoding ASCII
+          Set-Content -LiteralPath (Join-Path $fixture 'data\flutter_assets\marker.txt') -Value 'TEST' -Encoding ASCII
+          Add-Type -TypeDefinition $source -OutputAssembly (Join-Path $fixture 'ClosePilot.exe') -OutputType ConsoleApplication
+
+          $archive = Join-Path $updates 'ClosePilot-1.2.0.zip'
+          Compress-Archive -Path (Join-Path $fixture '*') -DestinationPath $archive -Force
+          Set-Content -LiteralPath (Join-Path $root 'config.json') -Value '{"monitorEnabled":true,"version":"preserve"}' -Encoding UTF8
+          Set-Content -LiteralPath (Join-Path $root 'events.jsonl') -Value 'user-activity-preserved' -Encoding UTF8
+          @{
+            pid = 99999999
+            installDir = $install
+            archive = $archive
+            version = '1.2.0'
+          } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'update-request.json') -Encoding UTF8
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path (Get-Location) 'assets\ClosePilot-Updater.ps1')
+          for ($i = 0; $i -lt 12 -and -not (Test-Path $out); $i++) { Start-Sleep -Milliseconds 500 }
+          if (-not (Test-Path $out)) {
+            Get-Content (Join-Path $root 'update.log') -ErrorAction SilentlyContinue
+            throw 'Updated executable was not relaunched.'
+          }
+          if ((Get-Content $out -Raw) -ne 'NEW-VERSION-STARTED') { throw 'Unexpected relaunched binary.' }
+          $backups = @(Get-ChildItem $env:RUNNER_TEMP -Directory -Filter 'ClosePilot-Install-Test.ClosePilotBackup-*')
+          if ($backups.Count -ne 1) { throw 'Previous release was not backed up.' }
+          if (-not (Test-Path (Join-Path $install 'flutter_windows.dll'))) { throw 'Updated runtime missing.' }
+          if ((Get-Content (Join-Path $root 'events.jsonl') -Raw).Trim() -ne 'user-activity-preserved') { throw 'Activity history changed.' }
+          if ((Get-Content (Join-Path $root 'config.json') -Raw) -notmatch '"preserve"') { throw 'Settings changed.' }
+          Write-Host 'Updater integration successful: swapped, reopened and preserved user data.'
