@@ -1389,7 +1389,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
           Icon(Icons.info_outline_rounded, color: kWarn, size: 19),
           SizedBox(width: 11),
           Expanded(child: Text(
-            'Safety first: ClosePilot does not stop an application that has never shown a visible window during monitoring. Keep Steam and Teams off while downloading games or making calls. Force-closing processes can interrupt active background tasks.',
+            'Automatic mode only cleans an app after its last visible window closes. Close All is a separate immediate force-close command with explicit app selection and confirmation. Unsaved data, downloads and calls can be lost.',
             style: TextStyle(color: Color(0xFFC2C9D1), fontSize: 12, height: 1.55),
           )),
         ]),
@@ -1481,6 +1481,31 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
                         _toast('Failed to update startup: $e', error: true);
                       }
                     })),
+            const Divider(color: kBorder),
+            _settingsOption(Icons.layers_clear_outlined, 'Minimize to system tray',
+                'Close the window without stopping the control center. Reopen from the tray icon.',
+                Switch(
+                  value: controller.config.minimizeToTray,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: kAccent,
+                  onChanged: _trayReady ? (v) => controller.setMinimizeToTray(v) : null,
+                )),
+            const Divider(color: kBorder),
+            _settingsOption(Icons.hourglass_top_rounded, 'Time saving assumption',
+                'Used ONLY for estimated time savings, not actual measured time.',
+                Text('${(estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble()).round()}s / cleanup',
+                  style: const TextStyle(color: kAccentBright, fontWeight: FontWeight.w700))),
+            Slider(
+              min: 5, max: 60, divisions: 11,
+              value: estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble().clamp(5, 60).toDouble(),
+              activeColor: kAccentBright,
+              label: '${(estimatePreview ?? controller.config.estimatedSecondsPerCleanup.toDouble()).round()}s',
+              onChanged: (v) => setState(() => estimatePreview = v),
+              onChangeEnd: (v) async {
+                await controller.setEstimatedSecondsPerCleanup(v.round());
+                if (mounted) setState(() => estimatePreview = null);
+              },
+            ),
             const Divider(color: kBorder),
             _settingsOption(Icons.timer_outlined, 'Close delay',
                 'Wait after the last window closes, allowing quick reopening.',
