@@ -10,7 +10,13 @@ if (-not (Test-Path -LiteralPath $configFile)) { throw 'ClosePilot configuration
 $configuration = Get-Content -LiteralPath $configFile -Raw -Encoding UTF8 | ConvertFrom-Json
 try {
     $rawIds = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($IdsBase64))
-    $requestedIds = @($rawIds | ConvertFrom-Json)
+    $parsedIds = ConvertFrom-Json -InputObject $rawIds
+    $requestedIds = @()
+    foreach ($candidate in $parsedIds) {
+        if ($candidate -is [string] -and -not [string]::IsNullOrWhiteSpace($candidate)) {
+            $requestedIds += [string]$candidate
+        }
+    }
 } catch { throw 'Invalid Close All selection.' }
 if ($requestedIds.Count -eq 0) { throw 'No application selected.' }
 $blockedNames = @(
@@ -27,7 +33,8 @@ $failedProcesses = 0
 $observedMb = 0.0
 $selectedApps = 0
 foreach ($app in @($configuration.apps)) {
-    if ($null -eq $app -or [string]$app.id -cnotin $requestedIds) { continue }
+    if ($null -eq $app) { continue }
+    if (-not ($requestedIds -ccontains [string]$app.id)) { continue }
     $selectedApps++
     $names = @($app.names | Where-Object {
         $_ -is [string] -and
