@@ -1,4 +1,4 @@
-# ClosePilot agent v1.0.1 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.1.0 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -214,7 +214,7 @@ public static class ClosePilotWindows {
         }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.0.1'
+            version = '1.1.0'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled
