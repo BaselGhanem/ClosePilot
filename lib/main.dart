@@ -1212,14 +1212,72 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
     );
   }
 
+  Widget _savingsPanel() {
+    final today = DateTime.now();
+    final midnight = DateTime(today.year, today.month, today.day);
+    final days = List<DateTime>.generate(7, (i) => midnight.subtract(Duration(days: 6 - i)));
+    final counts = days.map((day) => controller.cleanupByDay[day] ?? 0).toList();
+    final peak = counts.fold<int>(1, (a, b) => a > b ? a : b);
+    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF102E36), Color(0xFF101C26)]),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF2E545C)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(spacing: 16, runSpacing: 10, alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center, children: [
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Your time, reclaimed', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            SizedBox(height: 5),
+            Text('Automatic cleanup sessions · last 7 days',
+              style: TextStyle(color: kMuted, fontSize: 11)),
+          ]),
+          Text('${controller.automaticCleanupSessions} automated  •  ${controller.manualAppClosures} manual',
+            style: const TextStyle(color: kAccentBright, fontSize: 12, fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 20),
+        SizedBox(height: 104, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          for (var i = 0; i < 7; i++)
+            Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Text('${counts[i]}', style: const TextStyle(fontSize: 10, color: kMuted)),
+              const SizedBox(height: 6),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOutCubic,
+                width: 28, height: 7 + 52 * counts[i] / peak,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                    colors: counts[i] == 0
+                        ? [const Color(0xFF25424A), const Color(0xFF25424A)]
+                        : [kAccentBright, kAccent.withValues(alpha: .46)]),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(dayLabels[days[i].weekday - 1],
+                style: TextStyle(color: i == 6 ? kAccentBright : kMuted, fontSize: 10)),
+            ])),
+        ])),
+        const SizedBox(height: 16),
+        Text('Estimated time saved assumes ${controller.config.estimatedSecondsPerCleanup} seconds per automatic app cleanup. This is an editable estimate, not measured actual time.',
+          style: const TextStyle(fontSize: 11, color: kMuted, height: 1.5)),
+      ]),
+    );
+  }
+
   Widget _metric(IconData icon, String label, String value, String helper) =>
       Container(
         height: 135,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: kSurface,
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [Color(0xFF172B32), Color(0xFF101C26)]),
           borderRadius: BorderRadius.circular(19),
-          border: Border.all(color: kBorder),
+          border: Border.all(color: const Color(0xFF31525B)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
