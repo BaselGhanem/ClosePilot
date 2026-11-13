@@ -738,6 +738,61 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
     ));
   }
 
+  Future<void> _confirmCloseAll() async {
+    if (controller.loading || _backgroundBusy) return;
+    final selected = controller.config.apps.where((a) => a.enabled).map((a) => a.id).toSet();
+    final confirmed = await showDialog<Set<String>>(context: context,
+      builder: (context) => StatefulBuilder(builder: (dialog, update) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('CLOSE ALL · Force termination'),
+        content: SizedBox(width: 440, child: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('This closes selected applications EVEN WHEN OPEN. Unsaved work, downloads or calls may be lost.',
+            style: TextStyle(color: Color(0xFFFFA0A5), fontSize: 12, height: 1.5)),
+          TextButton.icon(onPressed: () => update(() {
+            if (selected.length == controller.config.apps.length) { selected.clear(); }
+            else { selected.addAll(controller.config.apps.map((a) => a.id)); }
+          }), icon: const Icon(Icons.select_all_rounded),
+            label: Text(selected.length == controller.config.apps.length ? 'Deselect all' : 'Select all tracked apps')),
+          ConstrainedBox(constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView(shrinkWrap: true, children: [
+              for (final app in controller.config.apps)
+                CheckboxListTile(dense: true, contentPadding: EdgeInsets.zero,
+                  activeColor: kAccent, value: selected.contains(app.id),
+                  title: Text(app.label, style: const TextStyle(fontSize: 13)),
+                  subtitle: Text(app.enabled ? 'Watched · ${controller.statusFor(app.id).count} processes'
+                    : 'Usually excluded · select explicitly',
+                    style: const TextStyle(color: kMuted, fontSize: 10)),
+                  onChanged: (v) => update(() { if (v == true) { selected.add(app.id); }
+                    else { selected.remove(app.id); } })),
+            ])),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancel')),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF933747)),
+            onPressed: selected.isEmpty ? null : () => Navigator.pop(dialog, Set<String>.from(selected)),
+            icon: const Icon(Icons.power_settings_new_rounded),
+            label: Text('FORCE CLOSE ${selected.length} APPS'),
+          ),
+        ],
+      )));
+    if (confirmed == null || confirmed.isEmpty || !mounted) return;
+    setState(() => _backgroundBusy = true);
+    try {
+      final result = await controller.forceCloseSelected(confirmed);
+      final stopped = (result['closedProcesses'] as num?)?.toInt() ?? 0;
+      final apps = (result['closedApps'] as num?)?.toInt() ?? 0;
+      final failed = (result['failedProcesses'] as num?)?.toInt() ?? 0;
+      _toast('Closed $stopped processes in $apps apps.${failed > 0 ? ' $failed failed.' : ''}',
+        error: failed > 0);
+    } catch (e) {
+      _toast('Close All failed: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _backgroundBusy = false);
+    }
+  }
+
   Future<void> _addApp() async {
     final label = TextEditingController();
     final names = TextEditingController();
@@ -1007,12 +1062,23 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
   Widget _dashboard(bool wide) => ListView(
         padding: EdgeInsets.symmetric(horizontal: wide ? 37 : 20, vertical: 32),
         children: [
-          _header('System overview', 'Control what stays running after you close an app.',
-              action: OutlinedButton.icon(
-                  onPressed: () => controller.refresh(),
-                  icon: const Icon(Icons.refresh_rounded, size: 17),
-                  label: const Text('Refresh'))),
-          const SizedBox(height: 27),
+          _header('Welcome back, Basel', 'Your personal Windows performance control center.',
+              action: Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: _trayReady && controller.online ? _runInBackground : null,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
+                  label: const Text('Run in background'),
+                ),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8E3647)),
+                  onPressed: controller.loading || _backgroundBusy ? null : _confirmCloseAll,
+                  icon: const Icon(Icons.power_settings_new_rounded, size: 17),
+                  label: const Text('CLOSE ALL'),
+                ),
+                IconButton.outlined(onPressed: () => controller.refresh(),
+                  icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh'),
+              ])),
+           const SizedBox(height: 27),
           _hero(),
           if (!controller.online) ...[
             const SizedBox(height: 15),
