@@ -105,8 +105,22 @@ try {
     }
     Remove-Item -LiteralPath $requestFile -Force -ErrorAction SilentlyContinue
     $newExe = Join-Path $installDir 'ClosePilot.exe'
-    Start-Process -FilePath $newExe -WorkingDirectory $installDir -ErrorAction Stop
-    Write-UpdateLog ('Restarted ClosePilot v{0}' -f $req.version)
+    try {
+        Start-Process -FilePath $newExe -WorkingDirectory $installDir -ErrorAction Stop
+        Write-UpdateLog ('Restarted ClosePilot v{0}' -f $req.version)
+    } catch {
+        Write-UpdateLog ('Updated executable failed to launch. Rolling back: {0}' -f $_.Exception.Message)
+        $failedPath = Join-Path $parent ('.ClosePilot-failed-' + $id)
+        Rename-Item -LiteralPath $installDir -NewName (Split-Path $failedPath -Leaf) -ErrorAction Stop
+        Rename-Item -LiteralPath $backup -NewName $base -ErrorAction Stop
+        try {
+            Start-Process -FilePath (Join-Path $installDir 'ClosePilot.exe') -WorkingDirectory $installDir -ErrorAction Stop
+            Write-UpdateLog 'Previous version restored and restarted.'
+        } catch {
+            Write-UpdateLog ('Restore launch failed: {0}' -f $_.Exception.Message)
+        }
+        throw 'New version failed to start; previous version was restored.'
+    }
 } catch {
     Write-UpdateLog ('UPDATE FAILED: {0}' -f $_.Exception.Message)
 } finally {
