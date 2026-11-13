@@ -1,0 +1,46 @@
+name: Close All safety test (Windows)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/ClosePilot-Action.ps1'
+      - '.github/workflows/manual-action-smoke.yml'
+
+jobs:
+  close_all:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm selected-process close works without windows and blocks system process names
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:LOCALAPPDATA 'ClosePilot'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $config = @{
+            apps = @(
+              @{id='test-ping';label='Test Ping';names=@('ping');enabled=$true},
+              @{id='blocked';label='Protected';names=@('powershell');enabled=$true}
+            )
+          } | ConvertTo-Json -Depth 6
+          Set-Content -LiteralPath (Join-Path $root 'config.json') -Value $config -Encoding utf8
+          $ping = Start-Process -FilePath "$env:WINDIR/System32/PING.EXE" -ArgumentList '-t 127.0.0.1' -PassThru -WindowStyle Hidden
+          try {
+            Start-Sleep -Seconds 3
+            if ($ping.HasExited) { throw 'Test process exited unexpectedly' }
+            $ids = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('["test-ping","blocked"]'))
+            $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'assets/ClosePilot-Action.ps1' -Action close-all -IdsBase64 $ids | ConvertFrom-Json
+            Write-Output ($result | ConvertTo-Json)
+            if ($result.closedProcesses -lt 1) { throw 'No test processes closed' }
+            if ($result.closedApps -ne 1) { throw 'Unexpected app closure count' }
+            if ($result.failedProcesses -ne 0) { throw 'Unexpected force-close failure' }
+            Start-Sleep -Seconds 1
+            if (Get-Process -Id $ping.Id -ErrorAction SilentlyContinue) { throw 'Test process is still running' }
+            $eventLines = Get-Content (Join-Path $root 'events.jsonl')
+            if ($eventLines -notmatch '"kind":"manual-close-all"') { throw 'Manual close activity event not recorded' }
+            Write-Host 'Close All integration test passed.'
+          } finally {
+            Stop-Process -Id $ping.Id -Force -ErrorAction SilentlyContinue
+          }
