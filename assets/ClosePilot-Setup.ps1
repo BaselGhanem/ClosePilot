@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet('enable-startup','disable-startup','migrate-legacy','start-agent')]
+    [ValidateSet('enable-startup','disable-startup','migrate-legacy','start-agent','start-updater')]
     [string]$Action
 )
 $ErrorActionPreference = 'Stop'
@@ -23,6 +23,21 @@ if ($Action -eq 'enable-startup') {
 if ($Action -eq 'disable-startup') {
     Remove-Item -LiteralPath $link -Force -ErrorAction SilentlyContinue
     Write-Output 'Startup disabled.'
+}
+
+if ($Action -eq 'start-updater') {
+    $updaterScript = Join-Path $root 'ClosePilot-Updater.ps1'
+    $requestFile = Join-Path $root 'update-request.json'
+    if (-not (Test-Path -LiteralPath $updaterScript -PathType Leaf)) {
+        throw 'Update script not installed.'
+    }
+    if (-not (Test-Path -LiteralPath $requestFile -PathType Leaf)) {
+        throw 'Update request missing.'
+    }
+    $powershell = Join-Path $PSHOME 'powershell.exe'
+    $arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"' -f $updaterScript
+    $updateProcess = Start-Process -FilePath $powershell -ArgumentList $arguments -WorkingDirectory $root -WindowStyle Hidden -PassThru -ErrorAction Stop
+    Write-Output ('Update process launched, PID {0}' -f $updateProcess.Id)
 }
 
 if ($Action -eq 'start-agent') {
