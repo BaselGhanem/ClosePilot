@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
+import 'update_service.dart';
 
 const Color kBackground = Color(0xFF090F15);
 const Color kSurface = Color(0xFF101B24);
@@ -317,7 +318,7 @@ class ClosePilotController extends ChangeNotifier {
   String _stripBom(String s) => s.replaceFirst('\uFEFF', '').trim();
 
   Future<void> _installAssets() async {
-    for (final name in ['ClosePilot-Agent.ps1', 'ClosePilot-Setup.ps1', 'ClosePilot-Action.ps1']) {
+    for (final name in ['ClosePilot-Agent.ps1', 'ClosePilot-Setup.ps1', 'ClosePilot-Action.ps1', 'ClosePilot-Updater.ps1']) {
       final source = await rootBundle.loadString('assets/$name');
       final target = File('${home.path}\\$name');
       await target.writeAsString(source, flush: true);
@@ -622,6 +623,10 @@ class ClosePilotApp extends StatefulWidget {
 class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, TrayListener {
   bool _trayReady = false;
   bool _backgroundBusy = false;
+  bool _checkingUpdates = false;
+  bool _downloadingUpdate = false;
+  double _updateProgress = 0;
+  final UpdateService _updateService = const UpdateService();
   double? estimatePreview;
 
   final controller = ClosePilotController();
@@ -631,11 +636,132 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
   @override
   void initState() {
     super.initState();
-    controller.initialize();
+    unawaited(_initializeAndCheckUpdates());
     if (Platform.isWindows && closePilotWindowHooksReady) {
       windowManager.addListener(this);
       trayManager.addListener(this);
       unawaited(_setupSystemTray());
+    }
+  }
+
+  Future<void> _initializeAndCheckUpdates() async {
+    await controller.initialize();
+    if (!mounted) return;
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+    if (mounted) await _checkForUpdates(silentIfCurrent: true);
+  }
+
+  Future<void> _checkForUpdates({bool silentIfCurrent = false}) async {
+    if (_checkingUpdates || _downloadingUpdate || !mounted) return;
+    setState(() => _checkingUpdates = true);
+    try {
+      final release = await _updateService.checkForUpdate();
+      if (!mounted) return;
+      if (release == null) {
+        if (!silentIfCurrent) {
+          _toast('ClosePilot v$kClosePilotVersion is already up to date.');
+        }
+        return;
+      }
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: kSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: const BorderSide(color: kBorder),
+          ),
+          title: Row(children: [
+            const Icon(Icons.system_update_alt_rounded, color: kAccentBright, size: 28),
+            const SizedBox(width: 11),
+            Expanded(child: Text('Update v${release.version} available',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20))),
+          ]),
+          content: SizedBox(width: 475, child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Installed: v$kClosePilotVersion   →   Available: v${release.version}',
+                style: const TextStyle(color: kAccentBright, fontSize: 12)),
+              const SizedBox(height: 14),
+              const Text('What is new', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 7),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 170),
+                child: SingleChildScrollView(
+                  child: Text(release.notes.isEmpty
+                      ? 'Maintenance and improvements.'
+                      : release.notes.length > 2800
+                          ? '${release.notes.substring(0, 2800)}…'
+                          : release.notes,
+                    style: const TextStyle(color: kMuted, height: 1.5, fontSize: 12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Download only after approval. ZIP integrity is verified with SHA-256. '
+                'ClosePilot will close briefly, install the update, and reopen. '
+                'Settings and activity history are preserved.',
+                style: TextStyle(color: kMuted, fontSize: 11, height: 1.6)),
+            ],
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Not now')),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.download_rounded),
+              label: const Text('Update Now'),
+            ),
+          ],
+        ),
+      );
+      if (approved == true && mounted) {
+        await _installRelease(release);
+      }
+    } catch (e) {
+      if (!silentIfCurrent && mounted) {
+        _toast('Update check failed: $e', error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _checkingUpdates = false);
+    }
+  }
+
+  Future<void> _installRelease(ClosePilotRelease release) async {
+    if (_downloadingUpdate || _backgroundBusy) return;
+    setState(() {
+      _downloadingUpdate = true;
+      _backgroundBusy = true;
+      _updateProgress = 0;
+    });
+    try {
+      final archive = await _updateService.downloadVerified(
+        release,
+        onProgress: (progress) {
+          if (mounted) setState(() => _updateProgress = progress);
+        },
+      );
+      if (!mounted) return;
+      await _updateService.prepareInstallation(release, archive);
+      if (mounted) {
+        _toast('Update verified. Closing ClosePilot to install v${release.version}.');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      if (closePilotWindowHooksReady) {
+        try {
+          await windowManager.setPreventClose(false);
+          await trayManager.destroy();
+        } catch (_) {}
+      }
+      // Only this UI exits. The separate background monitor remains active.
+      exit(0);
+    } catch (e) {
+      if (mounted) _toast('Update not installed: $e', error: true);
+    } finally {
+      if (mounted) setState(() {
+        _downloadingUpdate = false;
+        _backgroundBusy = false;
+      });
     }
   }
 
@@ -1467,6 +1593,26 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
         children: [
           _header('Preferences', 'Set the rules that fit your workflow.'),
           const SizedBox(height: 24),
+          _settingsCard(children: [
+            _settingsOption(Icons.system_update_alt_rounded, 'Software updates',
+              'Current version v$kClosePilotVersion · Checks on launch only, or when you click.',
+              FilledButton.icon(
+                onPressed: _checkingUpdates || _downloadingUpdate
+                    ? null : () => _checkForUpdates(),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Check for Updates'),
+              )),
+            if (_checkingUpdates)
+              const LinearProgressIndicator(color: kAccentBright, minHeight: 2),
+            if (_downloadingUpdate) ...[
+              LinearProgressIndicator(value: _updateProgress,
+                color: kAccentBright, minHeight: 4),
+              const SizedBox(height: 8),
+              Text('Downloading verified update: ${(_updateProgress * 100).round()}%',
+                style: const TextStyle(color: kMuted, fontSize: 11)),
+            ],
+          ]),
+          const SizedBox(height: 19),
           _settingsCard(children: [
             _settingsOption(Icons.power_settings_new_rounded, 'Start with Windows',
                 'Launch the invisible monitor after you sign in.',
