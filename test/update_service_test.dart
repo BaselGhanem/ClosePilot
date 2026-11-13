@@ -16,8 +16,8 @@ void main() {
     expect(() => UpdateService.compareVersions('1.2', '1.0.0'), throwsFormatException);
   });
 
-  test('Public update repository and binary version are pinned', () {
-    expect(kReleaseRepository, 'BaselGhanem/ClosePilot-Releases');
-    expect(kClosePilotVersion, '1.2.0');
+  test('Updater reads releases from the SAME public GitHub repository', () {
+    expect(kReleaseRepository, 'BaselGhanem/ClosePilot');
+    expect(kClosePilotVersion, '1.2.1');
   });
 }
