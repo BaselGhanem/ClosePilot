@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'pubspec.yaml'
+      - 'Build-Windows.ps1'
       - 'assets/ClosePilot-Agent.ps1'
       - '.github/workflows/publish-public-release.yml'
 
