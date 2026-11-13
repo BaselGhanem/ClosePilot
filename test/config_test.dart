@@ -25,4 +25,31 @@ void main() {
     expect(c.validateNewRule('Text editor', 'notepad.exe'), isNull);
     c.dispose();
   });
+  test('Basel Edition settings round-trip for tray and estimated time', () {
+    final original = MonitorConfig.initial().copyWith(
+      minimizeToTray: false,
+      estimatedSecondsPerCleanup: 45,
+    );
+    final restored = MonitorConfig.fromJson(original.toJson());
+    expect(restored.minimizeToTray, isFalse);
+    expect(restored.estimatedSecondsPerCleanup, 45);
+    final legacy = MonitorConfig.initial().toJson()
+      ..remove('minimizeToTray')
+      ..remove('estimatedSecondsPerCleanup');
+    final upgraded = MonitorConfig.fromJson(legacy);
+    expect(upgraded.minimizeToTray, isTrue);
+    expect(upgraded.estimatedSecondsPerCleanup, 20);
+  });
+
+  test('Time saved is explicitly an estimate per completed app cleanup', () {
+    final c = ClosePilotController();
+    c.automaticCleanupSessions = 3;
+    expect(c.estimatedSecondsSaved, 60);
+    expect(c.estimatedTimeSaved, '1.0 min');
+    c.config = c.config.copyWith(estimatedSecondsPerCleanup: 40);
+    expect(c.estimatedSecondsSaved, 120);
+    expect(c.estimatedTimeSaved, '2.0 min');
+    c.dispose();
+  });
+
 }
