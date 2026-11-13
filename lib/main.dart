@@ -65,6 +65,8 @@ class AppRule {
 class MonitorConfig {
   final bool monitorEnabled;
   final bool autoStart;
+  final bool minimizeToTray;
+  final int estimatedSecondsPerCleanup;
   final int graceSeconds;
   final int pollSeconds;
   final List<AppRule> apps;
@@ -72,6 +74,8 @@ class MonitorConfig {
   const MonitorConfig({
     required this.monitorEnabled,
     required this.autoStart,
+    required this.minimizeToTray,
+    required this.estimatedSecondsPerCleanup,
     required this.graceSeconds,
     required this.pollSeconds,
     required this.apps,
@@ -80,6 +84,8 @@ class MonitorConfig {
   factory MonitorConfig.initial() => const MonitorConfig(
         monitorEnabled: true,
         autoStart: true,
+        minimizeToTray: true,
+        estimatedSecondsPerCleanup: 20,
         graceSeconds: 20,
         pollSeconds: 3,
         apps: [
@@ -119,6 +125,8 @@ class MonitorConfig {
   factory MonitorConfig.fromJson(Map<String, dynamic> j) => MonitorConfig(
         monitorEnabled: j['monitorEnabled'] != false,
         autoStart: j['autoStart'] != false,
+        minimizeToTray: j['minimizeToTray'] != false,
+        estimatedSecondsPerCleanup: ((j['estimatedSecondsPerCleanup'] as num?)?.toInt() ?? 20).clamp(5, 120).toInt(),
         graceSeconds: ((j['graceSeconds'] as num?)?.toInt() ?? 20)
             .clamp(5, 120).toInt(),
         pollSeconds:
@@ -132,12 +140,16 @@ class MonitorConfig {
   MonitorConfig copyWith({
     bool? monitorEnabled,
     bool? autoStart,
+    bool? minimizeToTray,
+    int? estimatedSecondsPerCleanup,
     int? graceSeconds,
     List<AppRule>? apps,
   }) =>
       MonitorConfig(
         monitorEnabled: monitorEnabled ?? this.monitorEnabled,
         autoStart: autoStart ?? this.autoStart,
+        minimizeToTray: minimizeToTray ?? this.minimizeToTray,
+        estimatedSecondsPerCleanup: estimatedSecondsPerCleanup ?? this.estimatedSecondsPerCleanup,
         graceSeconds: graceSeconds ?? this.graceSeconds,
         pollSeconds: pollSeconds,
         apps: apps ?? this.apps,
@@ -146,6 +158,8 @@ class MonitorConfig {
   Map<String, dynamic> toJson() => {
         'monitorEnabled': monitorEnabled,
         'autoStart': autoStart,
+        'minimizeToTray': minimizeToTray,
+        'estimatedSecondsPerCleanup': estimatedSecondsPerCleanup,
         'graceSeconds': graceSeconds,
         'pollSeconds': pollSeconds,
         'apps': apps.map((e) => e.toJson()).toList(),
@@ -209,6 +223,10 @@ class ClosePilotController extends ChangeNotifier {
   List<CleanerEvent> events = [];
   bool loading = true;
   bool online = false;
+  int automaticCleanupSessions = 0;
+  int manualAppClosures = 0;
+  int allStoppedProcesses = 0;
+  Map<DateTime, int> cleanupByDay = {};
   String? error;
   DateTime? updatedAt;
   Timer? _timer;
@@ -285,7 +303,7 @@ class ClosePilotController extends ChangeNotifier {
   String _stripBom(String s) => s.replaceFirst('\uFEFF', '').trim();
 
   Future<void> _installAssets() async {
-    for (final name in ['ClosePilot-Agent.ps1', 'ClosePilot-Setup.ps1']) {
+    for (final name in ['ClosePilot-Agent.ps1', 'ClosePilot-Setup.ps1', 'ClosePilot-Action.ps1']) {
       final source = await rootBundle.loadString('assets/$name');
       final target = File('${home.path}\\$name');
       await target.writeAsString(source, flush: true);
@@ -385,6 +403,16 @@ class ClosePilotController extends ChangeNotifier {
     await _saveConfig();
   }
 
+  Future<void> setMinimizeToTray(bool value) async {
+    config = config.copyWith(minimizeToTray: value);
+    await _saveConfig();
+  }
+
+  Future<void> setEstimatedSecondsPerCleanup(int value) async {
+    config = config.copyWith(estimatedSecondsPerCleanup: value.clamp(5, 120).toInt());
+    await _saveConfig();
+  }
+
   Future<void> setAutoStart(bool value) async {
     await _setup(value ? 'enable-startup' : 'disable-startup');
     config = config.copyWith(autoStart: value);
@@ -453,6 +481,10 @@ class ClosePilotController extends ChangeNotifier {
     final file = File('${home.path}\\events.jsonl');
     if (await file.exists()) await file.writeAsString('');
     events = [];
+    automaticCleanupSessions = 0;
+    manualAppClosures = 0;
+    allStoppedProcesses = 0;
+    cleanupByDay = {};
     notifyListeners();
   }
 
@@ -482,14 +514,36 @@ class ClosePilotController extends ChangeNotifier {
         final lines = await log.readAsLines();
         final tail = lines.length > 250 ? lines.sublist(lines.length - 250) : lines;
         final parsed = <CleanerEvent>[];
+        var sessions = 0;
+        var manualApps = 0;
+        var stoppedProcesses = 0;
+        final days = <DateTime, int>{};
+        for (final line in lines) {
+          try {
+            final event = CleanerEvent.fromJson(
+                jsonDecode(_stripBom(line)) as Map<String, dynamic>);
+            if (event.kind == 'auto-cleanup') {
+              sessions++;
+              final date = event.timestamp.toLocal();
+              final day = DateTime(date.year, date.month, date.day);
+              days[day] = (days[day] ?? 0) + 1;
+            }
+            if (event.kind == 'manual-close-all') manualApps++;
+            if (event.kind == 'stopped') stoppedProcesses++;
+          } catch (_) {
+            // Ignore an unfinished log line while the monitor is appending.
+          }
+        }
         for (final line in tail) {
           try {
             parsed.add(CleanerEvent.fromJson(
                 jsonDecode(_stripBom(line)) as Map<String, dynamic>));
-          } catch (_) {
-            // Ignore a partially written line during concurrent agent logging.
-          }
+          } catch (_) {}
         }
+        automaticCleanupSessions = sessions;
+        manualAppClosures = manualApps;
+        allStoppedProcesses = stoppedProcesses;
+        cleanupByDay = days;
         events = parsed.reversed.toList();
       }
     } catch (e) {
@@ -498,6 +552,37 @@ class ClosePilotController extends ChangeNotifier {
       _refreshing = false;
       notifyListeners();
     }
+  }
+
+  int get estimatedSecondsSaved => automaticCleanupSessions * config.estimatedSecondsPerCleanup;
+  String get estimatedTimeSaved {
+    final seconds = estimatedSecondsSaved;
+    if (seconds < 60) return '$seconds sec';
+    if (seconds < 3600) return '${(seconds / 60).toStringAsFixed(1)} min';
+    return '${(seconds / 3600).toStringAsFixed(1)} hr';
+  }
+
+  Future<Map<String, dynamic>> forceCloseSelected(Set<String> selectedIds) async {
+    if (!Platform.isWindows) throw StateError('Close All requires Windows.');
+    if (selectedIds.isEmpty) throw StateError('No application selected.');
+    final allowedIds = config.apps.map((a) => a.id).toSet();
+    if (!allowedIds.containsAll(selectedIds)) throw StateError('Invalid application selection.');
+    final idsJson = jsonEncode(selectedIds.toList());
+    final idsBase64 = base64Encode(utf8.encode(idsJson));
+    final script = File('${home.path}\\ClosePilot-Action.ps1');
+    if (!await script.exists()) throw StateError('Close All helper script is missing. Restart ClosePilot.');
+    final result = await Process.run('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+      script.path, '-Action', 'close-all', '-IdsBase64', idsBase64
+    ]);
+    if (result.exitCode != 0) {
+      throw StateError('Close All failed: ${result.stderr}');
+    }
+    final output = (result.stdout as String).trim();
+    final data = jsonDecode(output) as Map<String, dynamic>;
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    await refresh();
+    return data;
   }
 
   RuleStatus statusFor(String id) => statuses[id] ?? const RuleStatus();
