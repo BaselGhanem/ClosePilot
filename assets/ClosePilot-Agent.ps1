@@ -267,10 +267,15 @@ public static class ClosePilotWindows {
             try {
                 $samples = $metricsWorker.EndInvoke($metricsInvocation)
                 if ($samples.Count -gt 0) {
-                    $performance = $samples[0].BaseObject
+                    $performance = $samples[0].PSObject.BaseObject
                     $sampleAt = $now
                 }
-            } catch { }
+            } catch {
+                if (-not $script:metricsErrorLogged) {
+                    $script:metricsErrorLogged = $true
+                    Write-Event 'warning' '' ('Unable to read Windows performance counters: {0}' -f $_.Exception.Message)
+                }
+            }
             $metricsInvocation = $null
             $metricsWorker.Commands.Clear()
             $nextSample = $now.AddSeconds(4)
