@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'pubspec.yaml'
+      - '.github/workflows/publish-public-release.yml'
 
 permissions:
   contents: write
@@ -53,6 +54,8 @@ jobs:
             Write-Host "Preparing release $tag for $repo."
           }
           "tag=$tag" >> $env:GITHUB_OUTPUT
+          # gh release view exits 1 for a new tag; do not leak that exit status into this step.
+          exit 0
 
       - uses: subosito/flutter-action@v2
         if: steps.release.outputs.skip != 'true'
