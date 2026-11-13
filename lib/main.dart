@@ -968,7 +968,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
               const SizedBox(width: 12),
               const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('ClosePilot', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, letterSpacing: -.6)),
-                Text('SYSTEM UTILITY', style: TextStyle(color: kMuted, fontSize: 9, letterSpacing: 2)),
+                Text('BASEL EDITION', style: TextStyle(color: kAccentBright, fontSize: 9, letterSpacing: 2)),
               ]),
             ]),
           ),
@@ -1105,7 +1105,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
           ],
           const SizedBox(height: 24),
           LayoutBuilder(builder: (ctx, box) {
-            final columns = box.maxWidth > 720 ? 3 : (box.maxWidth > 460 ? 2 : 1);
+            final columns = box.maxWidth > 850 ? 4 : (box.maxWidth > 460 ? 2 : 1);
             final spacing = 14.0;
             final width = (box.maxWidth - (columns - 1) * spacing) / columns;
             final tiles = [
@@ -1113,14 +1113,18 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
                   'Across watched applications'),
               _metric(Icons.memory_outlined, 'Observed memory', _formatMemory(controller.observedMb),
                   'Working sets, not freed RAM'),
-              _metric(Icons.check_circle_outline, 'Recent stops', '${controller.stoppedCount}',
-                  'From recent activity history'),
+              _metric(Icons.auto_awesome_outlined, 'Auto cleanups', '${controller.automaticCleanupSessions}',
+                   'Completed automatic sessions'),
+               _metric(Icons.hourglass_top_rounded, 'Est. time saved', controller.estimatedTimeSaved,
+                   '${controller.config.estimatedSecondsPerCleanup}s per automatic app cleanup')
             ];
             return Wrap(spacing: spacing, runSpacing: spacing, children: [
               for (final tile in tiles) SizedBox(width: width, child: tile),
             ]);
           }),
-          const SizedBox(height: 33),
+          const SizedBox(height: 20),
+           _savingsPanel(),
+           const SizedBox(height: 33),
           Row(children: [
             const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Protected applications', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
@@ -1180,10 +1184,10 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
           ]),
           const SizedBox(height: 13),
           Text(!controller.online ? 'Monitoring is not running.' :
-              active ? 'Your apps. Your rules.' : 'Everything is on hold.',
+              active ? 'Your desktop, in control.' : 'Everything is on hold.',
               style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800, letterSpacing: -.7)),
           const SizedBox(height: 7),
-          const Text('Close a window. ClosePilot handles leftover background processes.',
+          const Text('Basel Edition • Let the monitor handle leftover background processes.',
               style: TextStyle(color: Color(0xFFC0D4D9), fontSize: 13, height: 1.5)),
         ]);
         final control = FilledButton.icon(
@@ -1353,7 +1357,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
       );
 
   Widget _eventTile(CleanerEvent event) {
-    final stopped = event.kind == 'stopped';
+    final stopped = event.kind == 'stopped' || event.kind == 'auto-cleanup' || event.kind == 'manual-close-all';
     final failed = event.kind == 'error';
     final tint = stopped ? kAccentBright : failed ? const Color(0xFFFF9398) : kMuted;
     final time = event.timestamp.toLocal();
@@ -1374,7 +1378,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(event.message, maxLines: 3, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          if (stopped) ...[
+          if (event.kind == 'stopped') ...[
             const SizedBox(height: 4),
             Text('Observed before stop: ${_formatMemory(event.observedMb)} · not a measured RAM saving',
                 style: const TextStyle(color: kMuted, fontSize: 10)),
