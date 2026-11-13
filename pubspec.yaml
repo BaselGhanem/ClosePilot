@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  window_manager: 0.5.2
+  tray_manager: 0.5.3
 
 dev_dependencies:
   flutter_test:
@@ -20,3 +22,5 @@ flutter:
   assets:
     - assets/ClosePilot-Agent.ps1
     - assets/ClosePilot-Setup.ps1
+    - assets/ClosePilot-Action.ps1
+    - assets/closepilot.ico
