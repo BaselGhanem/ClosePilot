@@ -1080,7 +1080,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
               ])),
            const SizedBox(height: 27),
           _hero(),
-          if (!controller.online) ...[
+          if (!controller.online && !controller.loading) ...[
             const SizedBox(height: 15),
             Container(
               padding: const EdgeInsets.all(15),
@@ -1177,13 +1177,13 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
             Icon(active ? Icons.verified_user_outlined : Icons.pause_circle_outline,
                 size: 19, color: kAccentBright),
             const SizedBox(width: 9),
-            Text(!controller.online ? 'MONITOR OFFLINE' :
+            Text(controller.loading ? 'CONNECTING TO MONITOR' : !controller.online ? 'MONITOR OFFLINE' :
                 active ? 'AUTOMATIC CLEANUP ACTIVE' : 'AUTOMATIC CLEANUP PAUSED',
                 style: const TextStyle(color: kAccentBright, letterSpacing: 1.1,
                     fontSize: 11, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 13),
-          Text(!controller.online ? 'Monitoring is not running.' :
+          Text(controller.loading ? 'Preparing your control center...' : !controller.online ? 'Monitoring is not running.' :
               active ? 'Your desktop, in control.' : 'Everything is on hold.',
               style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800, letterSpacing: -.7)),
           const SizedBox(height: 7),
@@ -1191,7 +1191,7 @@ class _ClosePilotAppState extends State<ClosePilotApp> with WindowListener, Tray
               style: TextStyle(color: Color(0xFFC0D4D9), fontSize: 13, height: 1.5)),
         ]);
         final control = FilledButton.icon(
-          onPressed: () async {
+          onPressed: controller.loading ? null : () async {
             if (!controller.online) {
               await controller.startAgent();
             } else {
