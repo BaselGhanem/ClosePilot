@@ -28,6 +28,10 @@ jobs:
           # A minimal valid executable that records when the updater restarts it.
           $out = Join-Path $env:TEMP 'closepilot-updater-relaunch-ok.txt'
           if (Test-Path $out) { Remove-Item $out -Force }
+          $fixture = Join-Path $env:RUNNER_TEMP 'ClosePilot-New-Fixture'
+          $project = Join-Path $env:RUNNER_TEMP 'ClosePilot-Updater-Test-Project'
+          dotnet new console --name ClosePilot --output $project --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Could not scaffold test executable' }
           $source = @'
           using System;
           using System.IO;
@@ -37,12 +41,13 @@ jobs:
             }
           }
           '@
-          $fixture = Join-Path $env:RUNNER_TEMP 'ClosePilot-New-Fixture'
-          New-Item -ItemType Directory -Path (Join-Path $fixture 'data\flutter_assets') -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $project 'Program.cs') -Value $source -Encoding UTF8
+          dotnet publish (Join-Path $project 'ClosePilot.csproj') -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o $fixture
+          if ($LASTEXITCODE -ne 0) { throw 'Could not compile test executable' }
+          New-Item -ItemType Directory -Path (Join-Path $fixture 'data\\flutter_assets') -Force | Out-Null
           Set-Content -LiteralPath (Join-Path $fixture 'flutter_windows.dll') -Value 'TEST' -Encoding ASCII
-          Set-Content -LiteralPath (Join-Path $fixture 'data\icudtl.dat') -Value 'TEST' -Encoding ASCII
-          Set-Content -LiteralPath (Join-Path $fixture 'data\flutter_assets\marker.txt') -Value 'TEST' -Encoding ASCII
-          Add-Type -TypeDefinition $source -OutputAssembly (Join-Path $fixture 'ClosePilot.exe') -OutputType ConsoleApplication
+          Set-Content -LiteralPath (Join-Path $fixture 'data\\icudtl.dat') -Value 'TEST' -Encoding ASCII
+          Set-Content -LiteralPath (Join-Path $fixture 'data\\flutter_assets\\marker.txt') -Value 'TEST' -Encoding ASCII
 
           $archive = Join-Path $updates 'ClosePilot-1.2.0.zip'
           Compress-Archive -Path (Join-Path $fixture '*') -DestinationPath $archive -Force
