@@ -1,10 +1,10 @@
-# ClosePilot v1.2.0 — Basel Edition
+# ClosePilot v1.2.1 — Basel Edition
 
-- Optional update notifications at application startup only.
-- Manual **Check for Updates** button in Settings.
-- Explicit **Update Now** approval before download or installation.
-- SHA-256 verification of Windows ZIP packages before installation.
-- Windows-safe update handoff: close the UI, install the new release, then reopen ClosePilot.
-- Preserve settings and activity logs under %LOCALAPPDATA%\ClosePilot.
-- Keep the existing background monitor running while the interface updates.
-- Store a backup of the previous application folder for recovery.
+- **GitHub updates from the same public repository**: BaselGhanem/ClosePilot.
+- No second repository, external authentication token, or personal access token is required.
+- **Check for Updates** in Settings, plus one update check whenever the interface opens.
+- Download and install only after clicking **Update Now**.
+- Verifies the ZIP SHA-256 hash, closes the interface, installs the release, and reopens ClosePilot.
+- Preserves your local configuration and activity logs, plus a backup of the prior installation.
+- Runs the background agent independently while the interface is being updated.
+- The next release will be published through GitHub Actions when its version is incremented.
