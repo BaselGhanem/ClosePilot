@@ -1,0 +1,71 @@
+name: Publish verified public ClosePilot release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Validate release version and public distribution configuration
+        shell: pwsh
+        env:
+          RELEASE_ACCESS_TOKEN: ${{ secrets.CLOSEPILOT_RELEASE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:RELEASE_ACCESS_TOKEN)) {
+            throw 'Add CLOSEPILOT_RELEASE_TOKEN in the PRIVATE repository Actions secrets. It must have Contents: Read and write on the public ClosePilot-Releases repository.'
+          }
+          $pubspec = Get-Content pubspec.yaml -Raw
+          $match = [regex]::Match($pubspec, '(?m)^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$')
+          if (-not $match.Success) { throw 'Cannot determine current application version' }
+          $expectedTag = 'v' + $match.Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $expectedTag) {
+            throw "Release tag must match pubspec version: $expectedTag"
+          }
+          Write-Host "Release version validated: $expectedTag"
+      - name: Build Windows and run tests
+        shell: pwsh
+        run: .\Build-Windows.ps1
+      - name: Prepare ZIP and SHA-256 manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Copy-Item -LiteralPath 'ClosePilot-Windows-Release.zip' -Destination 'ClosePilot-Windows.zip' -Force
+          $hash = (Get-FileHash -LiteralPath 'ClosePilot-Windows.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'ClosePilot-Windows.zip.sha256'),
+            ($hash + '  ClosePilot-Windows.zip' + [Environment]::NewLine),
+            [System.Text.Encoding]::ASCII)
+          Write-Host "Release package SHA-256: $hash"
+      - name: Publish ONLY Windows ZIP and checksum to PUBLIC release repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.CLOSEPILOT_RELEASE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pubspec = Get-Content 'pubspec.yaml' -Raw
+          $version = [regex]::Match($pubspec, '(?m)^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$').Groups[1].Value
+          $tag = 'v' + $version
+          $publicRepo = 'BaselGhanem/ClosePilot-Releases'
+          gh repo view $publicRepo --json name > $null
+          if ($LASTEXITCODE -ne 0) { throw "Public repo $publicRepo is unavailable or token access is missing." }
+          gh release view $tag --repo $publicRepo --json tagName > $null 2> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; refusing to overwrite it." }
+          gh release create $tag 'ClosePilot-Windows.zip' 'ClosePilot-Windows.zip.sha256' `
+            --repo $publicRepo `
+            --title "ClosePilot $tag — Basel Edition" `
+            --notes-file 'RELEASE_NOTES.md' `
+            --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publish failed.' }
+          Write-Host "Published $tag to https://github.com/$publicRepo/releases"
