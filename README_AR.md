@@ -1,3 +1,28 @@
+## ClosePilot v1.2.0 — نظام التحديثات
+
+- عندما تفتح ClosePilot، يفحص فقط في بداية التشغيل آخر إصدار منشور في المستودع العام **BaselGhanem/ClosePilot-Releases**
+- يوجد زر **Check for Updates** في Settings للفحص في اي وقت
+- لا يتم تنزيل اي تحديث الا عندما توافق صراحة على **Update Now**
+- يفحص التطبيق SHA-256 للملف الكامل قبل تمريره لعملية التثبيت
+- يتم تجهيز النسخة الجديدة في مجلد مؤقت ثم يغلق البرنامج واجهته فقط (لا يوقف محرك المراقبة)، ويستبدل مجلد التشغيل مع الاحتفاظ بمجلد نسخة احتياطية من الاصدار السابق، ويعيد فتح ClosePilot
+- config.json و events.jsonl وسائر البيانات محفوظة خارج مجلد التشغيل في **%LOCALAPPDATA%\\ClosePilot** ولا تتأثر بالتحديث
+- عند فشل التشغيل او الاستبدال، يكتب محدّث Windows تفاصيله في **%LOCALAPPDATA%\\ClosePilot\\update.log**. عند فشل بدء EXE الجديد، يحاول استعادة النسخة السابقة
+- الملفات العامة هي حزمة Windows وملف SHA-256 فقط؛ يبقى المستودع الاصلي خاصا
+
+### تفعيل نشر التحديثات العامة (خطوات لمرة واحدة)
+
+**1.** انشئ مستودعا جديدا في حساب GitHub: **BaselGhanem/ClosePilot-Releases**، واختر **Public** مع خيار **Add a README**. لا ترفع اليه كود Dart او ملفات المشروع الخاص.
+
+**2.** من GitHub افتح **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. اختر مالك الحساب BaselGhanem، و**Only select repositories** ثم المستودع العام **ClosePilot-Releases** حصرا، وامنح **Repository permissions → Contents: Read and write**. لا تمنح صلاحيات اوسع. اختر فترة صلاحية مناسبة واحتفظ بالتوكن في مكان امن.
+
+**3.** افتح المستودع الخاص **BaselGhanem/ClosePilot → Settings → Secrets and variables → Actions → New repository secret**، ثم اضف التوكن باسم **CLOSEPILOT_RELEASE_TOKEN**. لا تنسخه الى ملفات المشروع او المحادثات.
+
+**4.** افتح **Actions** في المستودع الخاص، ثم workflow **Publish verified public ClosePilot release**، واضغط **Run workflow** على branch **main**. سيبني Windows، ويشغّل الاختبارات، وينشر الاصدار الموافق لرقم `version` في `pubspec.yaml` الى المستودع العام، باسم **ClosePilot-Windows.zip** مع **ClosePilot-Windows.zip.sha256**.
+
+**5.** للاصدارات القادمة، عدّل رقم الاصدار في `pubspec.yaml` وفي `lib/update_service.dart`، وحدّث `RELEASE_NOTES.md`، ثم نفذ workflow نفسه او ادفع tag مطابقا مثل `v1.3.0` الى المستودع الخاص. لا تعيد نشر اصدار موجود بالرقم ذاته.
+
+**حدود حالية:** لا يمكن للتطبيق الموجود اصلا قبل v1.2.0 تحديث نفسه؛ يلزم تنزيل v1.2.0 يدويا مرة اخيرة. لا يمكن اختبار وصول الاشعارات من GitHub Releases قبل انشاء المستودع العام ونشر اول اصدار عليه.
+
 # ClosePilot — Smart Background Process Manager
 
 تطبيق Windows بواجهة Flutter يعمل محليا بدون اشتراك او اتصال بالانترنت، مع مراقب PowerShell منفصل يستمر حتى بعد اغلاق الواجهة
