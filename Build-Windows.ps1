@@ -30,8 +30,8 @@ if (Test-Path -LiteralPath $runnerPath) {
         if (-not $match.Success) { throw 'Windows runner entry point not found.' }
         $guard = @'
   // Join the existing ClosePilot session.
-  HANDLE instance = ::CreateMutexW(nullptr, FALSE, L"Local\\ClosePilot_Desktop_Instance");
-  if (instance == nullptr) {
+  HANDLE closePilotMutex = ::CreateMutexW(nullptr, FALSE, L"Local\\ClosePilot_Desktop_Instance");
+  if (closePilotMutex == nullptr) {
     return EXIT_FAILURE;
   }
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -47,7 +47,7 @@ if (Test-Path -LiteralPath $runnerPath) {
       }
       ::Sleep(50);
     }
-    ::CloseHandle(instance);
+    ::CloseHandle(closePilotMutex);
     return EXIT_SUCCESS;
   }
 '@
