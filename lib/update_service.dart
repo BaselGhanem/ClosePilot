@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 /// The version of the currently installed binary. Bump with pubspec.yaml.
-const String kClosePilotVersion = '1.3.4';
+const String kClosePilotVersion = '1.3.5';
 const String kReleaseRepository = 'BaselGhanem/ClosePilot';
 
 class ClosePilotRelease {

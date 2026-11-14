@@ -1910,7 +1910,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _tr('Protected applications'),
+                      _tr('Open applications'),
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                     ),
@@ -1934,10 +1934,8 @@ class _ClosePilotAppState extends State<ClosePilotApp>
             ],
           ),
           const SizedBox(height: 18),
-          for (final rule in controller.config.apps.where((rule) => controller.statusFor(rule.id).hasWindow)) ...[
-            _appRow(rule, wide),
-            const SizedBox(height: 11),
-          ],
+          _openAppGallery(),
+          const SizedBox(height: 16),
           if (controller.config.apps.any((rule) => !controller.statusFor(rule.id).hasWindow))
             ExpansionTile(
               key: const PageStorageKey('closed-apps'),
@@ -2362,6 +2360,110 @@ class _ClosePilotAppState extends State<ClosePilotApp>
     if (status.mode == 'cleaned')
       return (_tr('Cleanup completed'), kAccentBright);
     return (_tr('Monitoring'), kMuted);
+  }
+
+  Widget _openAppGallery() {
+    final rules = controller.config.apps
+        .where((rule) => controller.statusFor(rule.id).hasWindow)
+        .toList();
+    if (rules.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text(_tr('No monitored apps have open windows.'),
+            style: const TextStyle(color: kMuted)),
+      );
+    }
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final columns = width >= 690 ? 3 : (width >= 440 ? 2 : 1);
+      final cardWidth = (width - 14 * (columns - 1)) / columns;
+      return Wrap(
+        spacing: 14,
+        runSpacing: 14,
+        children: [
+          for (final rule in rules)
+            SizedBox(
+              key: ValueKey(rule.id),
+              width: cardWidth,
+              child: _appCard(rule),
+            ),
+        ],
+      );
+    });
+  }
+
+  Widget _appCard(AppRule rule) {
+    final status = controller.statusFor(rule.id);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+      decoration: BoxDecoration(
+        color: kSurface,
+        border: Border.all(color: kBorder),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(children: [
+        _brandIcon(rule),
+        const SizedBox(height: 17),
+        Text(rule.label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        Text(
+          '${status.count} ${_tr('processes')} / ${_formatMemory(status.memoryMb)}',
+          style: const TextStyle(color: kMuted, fontSize: 13),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Tooltip(
+            message: _tr('Monitoring'),
+            child: Switch(
+              value: rule.enabled,
+              activeThumbColor: Colors.white,
+              activeTrackColor: kAccent,
+              onChanged: (value) => controller.setRuleEnabled(rule.id, value),
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filled(
+            tooltip: '${_tr('Force close app')} · ${rule.label}',
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF3B2027),
+              foregroundColor: const Color(0xFFFF7178),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: !controller.ready || controller.loading || _backgroundBusy
+                ? null : () => _confirmCloseApp(rule),
+            icon: const Icon(Icons.power_settings_new_rounded),
+          ),
+          if (rule.removable)
+            IconButton(
+              tooltip: _tr('Remove monitoring rule'),
+              onPressed: () => _deleteRule(rule),
+              icon: const Icon(Icons.more_vert_rounded, size: 20, color: kMuted),
+            ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _brandIcon(AppRule rule, [int index = 0]) {
+    if (index >= rule.names.length || !controller.ready) {
+      return SizedBox.square(dimension: 92,
+        child: Icon(_appIcon(rule.id), size: 48, color: kAccentBright));
+    }
+    final name = rule.names[index].toLowerCase();
+    if (name.contains(RegExp(r'[/\\:]'))) return _brandIcon(rule, index + 1);
+    return Image.file(
+      File('${controller.home.path}\\app-icons\\$name.png'),
+      width: 92,
+      height: 92,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      errorBuilder: (context, error, stack) => _brandIcon(rule, index + 1),
+    );
   }
 
   Widget _appRow(AppRule rule, bool wide) {

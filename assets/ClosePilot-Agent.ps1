@@ -1,4 +1,4 @@
-# ClosePilot agent v1.2.2 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.2.3 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -155,6 +155,42 @@ public static class ClosePilotWindows {
     $performance = @{}
     $sampleAt = [DateTime]::MinValue
     $nextSample = [DateTime]::MinValue
+    $iconDirectory = Join-Path $root 'app-icons'
+    $iconCache = @{}
+    $iconsAvailable = $false
+    try {
+        Add-Type -AssemblyName System.Drawing
+        New-Item -ItemType Directory -Path $iconDirectory -Force | Out-Null
+        $iconsAvailable = $true
+    } catch { }
+
+    function Save-AppIcon($process) {
+        if (-not $iconsAvailable -or -not $process.Path) { return }
+        $name = $process.ProcessName.ToLowerInvariant()
+        if ($iconCache[$name] -eq $process.Path) { return }
+        $iconCache[$name] = $process.Path
+        $icon = $null
+        $bitmap = $null
+        try {
+            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($process.Path)
+            if ($null -eq $icon) { return }
+            $bitmap = $icon.ToBitmap()
+            $target = Join-Path $iconDirectory ($name + '.png')
+            $temp = $target + '.tmp'
+            $bitmap.Save($temp, [System.Drawing.Imaging.ImageFormat]::Png)
+            if ([IO.File]::Exists($target)) {
+                [IO.File]::Replace($temp, $target, ($target + '.bak'))
+                [IO.File]::Delete($target + '.bak')
+            } else {
+                [IO.File]::Move($temp, $target)
+            }
+        } catch { }
+        finally {
+            if ($null -ne $bitmap) { $bitmap.Dispose() }
+            if ($null -ne $icon) { $icon.Dispose() }
+        }
+    }
+
     $config = $null
     $tracked = @{}
     $startedAt = (Get-Date).ToString('o')
@@ -187,6 +223,7 @@ public static class ClosePilotWindows {
                 $label = $process.Description
                 if ([string]::IsNullOrWhiteSpace($label)) { $label = $name }
                 $openApps[$name] = $label
+                Save-AppIcon $process
             } catch { }
         }
         foreach ($app in @($config.apps)) {
@@ -312,7 +349,7 @@ public static class ClosePilotWindows {
         if (($now - $sampleAt).TotalSeconds -gt 20) { $performance = @{} }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.2.2'
+            version = '1.2.3'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled

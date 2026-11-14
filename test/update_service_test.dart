@@ -18,6 +18,6 @@ void main() {
 
   test('Updater reads releases from the SAME public GitHub repository', () {
     expect(kReleaseRepository, 'BaselGhanem/ClosePilot');
-    expect(kClosePilotVersion, '1.3.4');
+    expect(kClosePilotVersion, '1.3.5');
   });
 }

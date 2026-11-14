@@ -215,4 +215,6 @@ const arabicText = <String, String>{
   'Force close app': 'اغلاق اجباري',
   'Force close failed': 'تعذر الاغلاق الاجباري',
   'Unsaved work in this app may be lost.': 'قد تفقد التغييرات غير المحفوظة في هذا التطبيق',
+  'Open applications': 'التطبيقات المفتوحة',
+  'No monitored apps have open windows.': 'ما في تطبيقات مراقبة مفتوحة حاليا',
 };
