@@ -1,5 +1,3 @@
-# ClosePilot v1.3.3
+# ClosePilot v1.3.4
 
-- Windows notifications when a new version is detected while ClosePilot is open or in the tray. Review and approve the update before installation.
-- Apps with open windows appear first. Other apps are available in a collapsible list.
-- Launching ClosePilot again restores the existing window and keeps one tray icon.
+- Force-close individual running apps from their row. The confirmation names the selected app.

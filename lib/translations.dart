@@ -212,4 +212,7 @@ const arabicText = <String, String>{
   'Basel Ghanem': 'باسل غانم',
   'Click to review the update.': 'اضغط لمراجعة التحديث',
   'Apps without open windows': 'التطبيقات بدون نافذة مفتوحة',
+  'Force close app': 'اغلاق اجباري',
+  'Force close failed': 'تعذر الاغلاق الاجباري',
+  'Unsaved work in this app may be lost.': 'قد تفقد التغييرات غير المحفوظة في هذا التطبيق',
 };

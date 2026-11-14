@@ -1318,9 +1318,14 @@ class _ClosePilotAppState extends State<ClosePilotApp>
       ),
     );
     if (confirmed == null || confirmed.isEmpty || !mounted) return;
+    await _closeApps(confirmed);
+  }
+
+  Future<void> _closeApps(Set<String> ids) async {
+    if (_backgroundBusy || _exiting) return;
     setState(() => _backgroundBusy = true);
     try {
-      final result = await controller.forceCloseSelected(confirmed);
+      final result = await controller.forceCloseSelected(ids);
       final stopped = (result['closedProcesses'] as num?)?.toInt() ?? 0;
       final apps = (result['closedApps'] as num?)?.toInt() ?? 0;
       final failed = (result['failedProcesses'] as num?)?.toInt() ?? 0;
@@ -1332,10 +1337,33 @@ class _ClosePilotAppState extends State<ClosePilotApp>
         error: failed > 0,
       );
     } catch (e) {
-      _toast('${_tr('Close All failed')}: $e', error: true);
+      _toast('${_tr('Force close failed')}: $e', error: true);
     } finally {
       if (mounted) setState(() => _backgroundBusy = false);
     }
+  }
+
+  Future<void> _confirmCloseApp(AppRule rule) async {
+    if (_backgroundBusy || _exiting) return;
+    final confirmed = await showDialog<bool>(
+      context: _navigator.currentContext!,
+      builder: (dialog) => AlertDialog(
+        title: Text('${_tr('Force close app')} · ${rule.label}'),
+        content: Text(_tr('Unsaved work in this app may be lost.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(_tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(_tr('Force close app')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    await _closeApps({rule.id});
   }
 
   Future<void> _addApp() async {
@@ -2436,6 +2464,15 @@ class _ClosePilotAppState extends State<ClosePilotApp>
             activeTrackColor: kAccent,
             onChanged: (value) => controller.setRuleEnabled(rule.id, value),
           ),
+          if (status.count > 0 || status.hasWindow)
+            IconButton(
+              tooltip: '${_tr('Force close app')} · ${rule.label}',
+              onPressed: !controller.ready || controller.loading || _backgroundBusy
+                  ? null
+                  : () => _confirmCloseApp(rule),
+              icon: const Icon(Icons.power_settings_new_rounded, size: 19),
+              color: const Color(0xFFFF9398),
+            ),
           if (rule.removable)
             IconButton(
               onPressed: () => _deleteRule(rule),
