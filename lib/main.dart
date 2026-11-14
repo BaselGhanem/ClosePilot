@@ -2457,7 +2457,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
     final name = rule.names[index].toLowerCase();
     if (name.contains(RegExp(r'[/\\:]'))) return _brandIcon(rule, index + 1);
     return Image.file(
-      File('${controller.home.path}\\app-icons\\$name.png'),
+      File('${controller.home.path}\\app-icons-hd\\$name.png'),
       width: 92,
       height: 92,
       fit: BoxFit.contain,

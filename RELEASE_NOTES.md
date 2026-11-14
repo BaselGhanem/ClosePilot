@@ -1,4 +1,3 @@
-# ClosePilot v1.3.5
+# ClosePilot v1.3.6
 
-- Open applications appear as responsive cards with Windows app icons, RAM usage, monitoring and per-app force close.
-- Apps without open windows remain in the expandable section.
+- Request high-resolution Windows application icons and rebuild the icon cache for the gallery.

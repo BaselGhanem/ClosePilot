@@ -1,4 +1,4 @@
-# ClosePilot agent v1.2.3 | Windows PowerShell 5.1+ | Runs in the current user session.
+# ClosePilot agent v1.2.4 | Windows PowerShell 5.1+ | Runs in the current user session.
 # Early boot trace: retained even if initialization exits before the main event log.
 try {
   $entryRoot = Join-Path $env:LOCALAPPDATA 'ClosePilot'
@@ -155,10 +155,24 @@ public static class ClosePilotWindows {
     $performance = @{}
     $sampleAt = [DateTime]::MinValue
     $nextSample = [DateTime]::MinValue
-    $iconDirectory = Join-Path $root 'app-icons'
+    $iconDirectory = Join-Path $root 'app-icons-hd'
     $iconCache = @{}
     $iconsAvailable = $false
     try {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class ClosePilotIconExtractor {
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    public static extern int SHDefExtractIconW(
+        string path, int index, uint flags, out IntPtr largeIcon,
+        IntPtr smallIcon, uint size);
+
+    [DllImport("user32.dll")]
+    public static extern bool DestroyIcon(IntPtr icon);
+}
+'@
         Add-Type -AssemblyName System.Drawing
         New-Item -ItemType Directory -Path $iconDirectory -Force | Out-Null
         $iconsAvailable = $true
@@ -169,11 +183,14 @@ public static class ClosePilotWindows {
         $name = $process.ProcessName.ToLowerInvariant()
         if ($iconCache[$name] -eq $process.Path) { return }
         $iconCache[$name] = $process.Path
+        $handle = [IntPtr]::Zero
         $icon = $null
         $bitmap = $null
         try {
-            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($process.Path)
-            if ($null -eq $icon) { return }
+            $result = [ClosePilotIconExtractor]::SHDefExtractIconW(
+                $process.Path, 0, 0, [ref]$handle, [IntPtr]::Zero, 256)
+            if ($result -ne 0 -or $handle -eq [IntPtr]::Zero) { return }
+            $icon = [System.Drawing.Icon]::FromHandle($handle)
             $bitmap = $icon.ToBitmap()
             $target = Join-Path $iconDirectory ($name + '.png')
             $temp = $target + '.tmp'
@@ -188,6 +205,7 @@ public static class ClosePilotWindows {
         finally {
             if ($null -ne $bitmap) { $bitmap.Dispose() }
             if ($null -ne $icon) { $icon.Dispose() }
+            if ($handle -ne [IntPtr]::Zero) { [void][ClosePilotIconExtractor]::DestroyIcon($handle) }
         }
     }
 
@@ -349,7 +367,7 @@ public static class ClosePilotWindows {
         if (($now - $sampleAt).TotalSeconds -gt 20) { $performance = @{} }
         $status = [ordered]@{
             agentPid = $PID
-            version = '1.2.3'
+            version = '1.2.4'
             startedAt = $startedAt
             updatedAt = (Get-Date).ToString('o')
             monitorEnabled = $enabled

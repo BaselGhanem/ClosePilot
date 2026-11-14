@@ -57,7 +57,7 @@ jobs:
               $previous = $dt
             }
             if (@($observedPids | Select-Object -Unique).Count -ne 1) { throw "Agent PID changed" }
-            if ($s.version -ne '1.2.3') { throw "Unexpected version: $($s.version)" }
+            if ($s.version -ne '1.2.4') { throw "Unexpected version: $($s.version)" }
             $events = Join-Path $root 'events.jsonl'
             if (Test-Path $events) { Get-Content $events -Tail 8 }
             $writeErrors = Join-Path $root 'status-write-errors.log'
@@ -74,7 +74,7 @@ jobs:
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'ClosePilot-Setup.ps1') -Action start-agent
             Start-Sleep -Seconds 6
             $replacement = Get-Content $status -Raw | ConvertFrom-Json
-            if (($replacement.agentPid -eq $p.ProcessId) -or ($replacement.version -ne '1.2.3')) {
+            if (($replacement.agentPid -eq $p.ProcessId) -or ($replacement.version -ne '1.2.4')) {
               throw "Replacement monitor did not start"
             }
             if ((Get-Date) - ([DateTimeOffset]::Parse($replacement.updatedAt)).LocalDateTime -gt [TimeSpan]::FromSeconds(8)) {

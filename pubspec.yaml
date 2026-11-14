@@ -1,7 +1,7 @@
 name: close_pilot
 description: Smart Windows background process manager. Entirely local and privacy-first.
 publish_to: none
-version: 1.3.5+10
+version: 1.3.6+11
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
