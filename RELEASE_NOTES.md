@@ -1,3 +1,4 @@
-# ClosePilot v1.3.6
+# ClosePilot v1.3.7
 
-- Request high-resolution Windows application icons and rebuild the icon cache for the gallery.
+- Reorder home screen sections by dragging them in edit mode.
+- Save a custom layout locally and switch between it and the original layout.

@@ -93,7 +93,23 @@ enum WindowLayout {
   final Size size;
 }
 
+enum DashboardSection {
+  monitor, performance, diagnostics, statistics, savings, applications, info
+}
+
+List<DashboardSection> dashboardOrder(Object? saved) {
+  final names = saved is List ? saved.whereType<String>() : const <String>[];
+  final sections = {for (final section in DashboardSection.values) section.name: section};
+  return [
+    for (final name in names.toSet())
+      if (sections.containsKey(name)) sections.remove(name)!,
+    ...sections.values,
+  ];
+}
+
 class MonitorConfig {
+  final List<DashboardSection> customDashboard;
+  final bool useCustomDashboard;
   final String language;
   final WindowLayout windowLayout;
   final bool monitorEnabled;
@@ -112,6 +128,8 @@ class MonitorConfig {
     required this.graceSeconds,
     required this.pollSeconds,
     required this.apps,
+    this.customDashboard = DashboardSection.values,
+    this.useCustomDashboard = false,
     this.language = 'en',
     this.windowLayout = WindowLayout.standard,
   });
@@ -160,6 +178,8 @@ class MonitorConfig {
       );
 
   factory MonitorConfig.fromJson(Map<String, dynamic> j) => MonitorConfig(
+        customDashboard: dashboardOrder(j['customDashboard']),
+        useCustomDashboard: j['useCustomDashboard'] == true,
         language: j['language'] == 'ar' ? 'ar' : 'en',
         windowLayout: WindowLayout.values.firstWhere(
           (layout) => layout.name == j['windowLayout'],
@@ -183,6 +203,8 @@ class MonitorConfig {
       );
 
   MonitorConfig copyWith({
+    List<DashboardSection>? customDashboard,
+    bool? useCustomDashboard,
     String? language,
     WindowLayout? windowLayout,
     bool? monitorEnabled,
@@ -193,6 +215,8 @@ class MonitorConfig {
     List<AppRule>? apps,
   }) =>
       MonitorConfig(
+        customDashboard: customDashboard ?? this.customDashboard,
+        useCustomDashboard: useCustomDashboard ?? this.useCustomDashboard,
         language: language ?? this.language,
         windowLayout: windowLayout ?? this.windowLayout,
         monitorEnabled: monitorEnabled ?? this.monitorEnabled,
@@ -206,6 +230,8 @@ class MonitorConfig {
       );
 
   Map<String, dynamic> toJson() => {
+        'customDashboard': customDashboard.map((section) => section.name).toList(),
+        'useCustomDashboard': useCustomDashboard,
         'language': language,
         'windowLayout': windowLayout.name,
         'monitorEnabled': monitorEnabled,
@@ -416,6 +442,12 @@ class ClosePilotController extends ChangeNotifier {
     );
     return write;
   }
+
+  Future<void> setDashboard({List<DashboardSection>? order, required bool custom}) =>
+      _saveConfig((current) => current.copyWith(
+        customDashboard: order == null ? null : List.unmodifiable(order),
+        useCustomDashboard: custom,
+      ));
 
   Future<void> setLanguage(String language) =>
       _saveConfig((current) => current.copyWith(language: language));
@@ -1791,9 +1823,100 @@ class _ClosePilotAppState extends State<ClosePilotApp>
         ),
       );
 
-  Widget _dashboard(bool wide) => ListView(
-        padding: EdgeInsets.symmetric(horizontal: wide ? 37 : 20, vertical: 32),
+  List<DashboardSection>? _dashboardDraft;
+  bool _savingDashboard = false;
+
+  String _sectionLabel(DashboardSection section) => _tr(switch (section) {
+    DashboardSection.monitor => 'Monitor status',
+    DashboardSection.performance => 'System performance',
+    DashboardSection.diagnostics => 'Diagnostics',
+    DashboardSection.statistics => 'Cleanup statistics',
+    DashboardSection.savings => 'Your time, reclaimed',
+    DashboardSection.applications => 'Open applications',
+    DashboardSection.info => 'Cleanup information',
+  });
+
+  void _editDashboard() => setState(() {
+    _dashboardDraft = controller.config.customDashboard.toList();
+    selectedPage = 0;
+  });
+
+  Future<void> _saveDashboard() async {
+    final draft = _dashboardDraft;
+    if (draft == null || _savingDashboard) return;
+    setState(() => _savingDashboard = true);
+    try {
+      await controller.setDashboard(order: draft, custom: true);
+      if (mounted) setState(() => _dashboardDraft = null);
+    } catch (e) {
+      _toast('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _savingDashboard = false);
+    }
+  }
+
+  Widget _dashboard(bool wide) {
+    final draft = _dashboardDraft;
+    final order = draft ?? (controller.config.useCustomDashboard
+        ? controller.config.customDashboard : DashboardSection.values);
+    final padding = EdgeInsets.symmetric(horizontal: wide ? 37 : 20, vertical: 32);
+    if (draft != null) {
+      return ReorderableListView(
+        padding: padding,
+        buildDefaultDragHandles: false,
+        header: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: _header(_tr('Reorder home screen'), _tr('Drag sections to change their order.'), action: Wrap(
+            spacing: 8,
+            children: [
+              TextButton(
+                onPressed: _savingDashboard ? null : () => setState(() => _dashboardDraft = null),
+                child: Text(_tr('Cancel')),
+              ),
+              FilledButton.icon(
+                onPressed: _savingDashboard ? null : _saveDashboard,
+                icon: const Icon(Icons.check_rounded),
+                label: Text(_tr('Save layout')),
+              ),
+            ],
+          )),
+        ),
+        onReorder: (from, to) {
+          if (_savingDashboard) return;
+          setState(() => draft.insert(to > from ? to - 1 : to, draft.removeAt(from)));
+        },
         children: [
+          for (final (index, section) in draft.indexed)
+            Padding(
+              key: ValueKey(section),
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ReorderableDragStartListener(
+                    enabled: !_savingDashboard,
+                    index: index,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: ListTile(
+                        tileColor: kSurfaceRaised,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        leading: const Icon(Icons.drag_indicator_rounded),
+                        title: Text(_sectionLabel(section)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  AbsorbPointer(child: _dashboardSection(section, wide)),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
+    return ListView(
+      padding: padding,
+      children: [
           _header(
             _tr('Welcome back, Basel'),
             _tr('Your personal Windows performance control center.'),
@@ -1826,12 +1949,29 @@ class _ClosePilotAppState extends State<ClosePilotApp>
               ],
             ),
           ),
-          const SizedBox(height: 27),
-          _hero(),
-          const SizedBox(height: 20),
-          _performancePanel(),
-          if (!controller.online && !controller.loading) ...[
-            const SizedBox(height: 15),
+        const SizedBox(height: 27),
+        for (final section in order)
+          if (section != DashboardSection.diagnostics || (!controller.online && !controller.loading))
+            Padding(
+              key: ValueKey(section),
+              padding: EdgeInsets.only(bottom: switch (section) {
+                DashboardSection.performance => 24,
+                DashboardSection.savings => 33,
+                DashboardSection.applications => 13,
+                DashboardSection.info => 0,
+                _ => 20,
+              }),
+              child: _dashboardSection(section, wide),
+            ),
+      ],
+    );
+  }
+
+  Widget _dashboardSection(DashboardSection section, bool wide) => switch (section) {
+    DashboardSection.monitor => _hero(),
+    DashboardSection.performance => _performancePanel(),
+    DashboardSection.diagnostics => controller.online || controller.loading
+        ? const SizedBox.shrink() :
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -1857,8 +1997,7 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                 ],
               ),
             ),
-          ],
-          const SizedBox(height: 24),
+    DashboardSection.statistics =>
           LayoutBuilder(
             builder: (ctx, box) {
               final columns =
@@ -1900,9 +2039,10 @@ class _ClosePilotAppState extends State<ClosePilotApp>
               );
             },
           ),
-          const SizedBox(height: 20),
-          _savingsPanel(),
-          const SizedBox(height: 33),
+    DashboardSection.savings => _savingsPanel(),
+    DashboardSection.applications => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           Row(
             children: [
               Expanded(
@@ -1956,10 +2096,10 @@ class _ClosePilotAppState extends State<ClosePilotApp>
                   ),
               ],
             ),
-          const SizedBox(height: 13),
-          _notice(),
-        ],
-      );
+      ],
+    ),
+    DashboardSection.info => _notice(),
+  };
 
   Widget _header(String title, String subtitle, {Widget? action}) => Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -2770,6 +2910,32 @@ class _ClosePilotAppState extends State<ClosePilotApp>
         children: [
           _header(
               _tr('Preferences'), _tr('Set the rules that fit your workflow.')),
+          const SizedBox(height: 20),
+          _settingsCard(children: [
+            _settingsOption(
+              Icons.dashboard_customize_outlined,
+              _tr('Home screen layout'),
+              _tr('Switch between the original and your saved layout.'),
+              Switch(
+                value: controller.config.useCustomDashboard,
+                onChanged: !controller.ready || controller.loading ? null : (custom) async {
+                  try {
+                    await controller.setDashboard(custom: custom);
+                  } catch (e) {
+                    _toast('$e', error: true);
+                  }
+                },
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: !controller.ready || controller.loading ? null : _editDashboard,
+                icon: const Icon(Icons.reorder_rounded),
+                label: Text(_tr('Reorder home screen')),
+              ),
+            ),
+          ]),
           const SizedBox(height: 20),
           _settingsCard(
             children: [
